@@ -1,0 +1,18 @@
+int main()
+{
+decl
+    int temp, num;
+enddecl
+begin
+    num=1;
+    while ( num <= 5000 ) do
+         temp = exposcall ( "Write" , -2, num );
+         num = num + 3;
+    endwhile;
+    temp = exposcall ("Exec", "odd.xsm");
+    if (temp < 0) then
+      	temp = exposcall ("Write", -2, "FILE NOT FOUND");
+    endif;
+    return 0;
+end
+}

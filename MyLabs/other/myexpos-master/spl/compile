@@ -1,0 +1,27 @@
+#!/bin/bash
+./spl ../Programs/Module24/A2/haltprog.spl
+./spl ../Programs/Module24/A2/os_startup.spl
+./spl ../Programs/Module24/A2/timer.spl
+./spl ../Programs/Module24/A2/int7.spl
+./spl ../Programs/Module24/A2/boot.spl
+./spl ../Programs/Module24/A2/int10.spl
+./spl ../Programs/Module24/A2/scheduler.spl
+./spl ../Programs/Module24/A2/module_0.spl
+./spl ../Programs/Module24/A2/module_4.spl
+./spl ../Programs/Module24/A2/console.spl
+./spl ../Programs/Module24/A2/int6.spl
+./spl ../Programs/Module24/A2/int9.spl
+./spl ../Programs/Module24/A2/module_1.spl
+./spl ../Programs/Module24/A2/module_2.spl
+./spl ../Programs/Module24/A2/diskint.spl
+./spl ../Programs/Module24/A2/int8.spl
+./spl ../Programs/Module24/A2/int11.spl
+./spl ../Programs/Module24/A2/int15.spl
+./spl ../Programs/Module24/A2/int13.spl
+./spl ../Programs/Module24/A2/int14.spl
+./spl ../Programs/Module24/A2/exe_handler.spl
+./spl ../Programs/Module24/A2/int4.spl
+./spl ../Programs/Module24/A2/int5.spl
+./spl ../Programs/Module24/A2/module_3.spl
+
+

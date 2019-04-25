@@ -1,0 +1,232 @@
+//this the resource manager module
+//function number = 3          //this is for the acquire disk module    
+                               // R1 stores the function number, R2 stores the current PID
+
+
+
+
+alias functionNum R1;
+
+
+if (functionNum == 3) then
+    alias currentPID R2;
+    while (1) do
+    if ([DISK_STATUS_TABLE] == 0) then
+        break;
+    endif;
+    [PROCESS_TABLE + currentPID * 16 + 4] = WAIT_DISK;
+        multipush (R1 , R2 , R3);
+        call MOD_5;
+        multipop (R1 , R2 , R3);
+        //print("Acquire");
+    endwhile;
+    [DISK_STATUS_TABLE + 0] = 1;          //status of the disk
+    [DISK_STATUS_TABLE + 4] = currentPID;    //pid of the disk
+    return;
+endif; 
+
+
+
+
+//this is for the acquire terminal
+if (functionNum == 8) then
+    alias currentPID R2;
+    while (1) do
+    if ([TERMINAL_STATUS_TABLE] != 1) then
+        break;
+    endif;
+    [PROCESS_TABLE + currentPID * 16 + 4] = WAIT_TERMINAL;
+        multipush (R1 , R2 , R3);
+        call MOD_5;
+        multipop (R1 , R2 , R3);
+        //print("Acquire");
+    endwhile;
+    [TERMINAL_STATUS_TABLE + 0] = 1;
+    [TERMINAL_STATUS_TABLE + 1] = currentPID;
+    return;
+endif;
+
+if (functionNum == 9) then
+    alias currentPID R2;
+    //print ([TERMINAL_STATUS_TABLE + 1]);
+    //breakpoint;
+    if (currentPID != [TERMINAL_STATUS_TABLE + 1]) then
+        R0 = -1;
+        return;
+    endif;
+    //print("Release");
+    [TERMINAL_STATUS_TABLE + 0] = 0;
+    alias process_number R3;
+    process_number = 1;
+    while (process_number < 16) do           //only upto the valid PID since it scheduling only three processes
+
+        if ([PROCESS_TABLE + 16 * process_number + 4] == WAIT_TERMINAL) then
+            [PROCESS_TABLE + 16 * process_number + 4] = READY;
+        endif;
+        process_number = process_number + 1;
+    endwhile;
+    
+    R0 = 0;                             //this is to return the value
+    return;
+endif;
+
+
+//acquire the semaphore
+if (functionNum == 6) then
+    alias currentPID R2;
+    alias counter R3;
+
+    counter = 0;
+    while (counter < 32) do
+        if ([SEMAPHORE_TABLE + counter * 4 + 1 ] == 0) then
+             break;
+        endif;
+        counter = counter + 1;
+    endwhile;
+
+
+    if (counter >= 32) then
+        R0 = -1;
+        return;
+    endif;
+
+    //set the process count to 1
+    [SEMAPHORE_TABLE + counter * 4 + 1] = 1;
+    [SEMAPHORE_TABLE + counter * 4] = -1;             //this is the locking pid
+    R0 = counter;
+
+    return;
+endif;  
+
+//release the semaphore
+if (functionNum == 7) then
+    
+    //these are from the arguments
+    alias semID R2;
+    alias currentPID R3;
+
+    if ([SEMAPHORE_TABLE + semID * 4 + 0 ] == currentPID) then
+        [SEMAPHORE_TABLE + semID * 4 + 0] = -1;      //set the locking pid to -1
+        alias counter R4;
+        counter = 0;
+        while (counter < 16) do
+            if ([PROCESS_TABLE + counter * 16 + 4] == WAIT_SEMAPHORE && [PROCESS_TABLE + counter * 16 + 5] == semID) then
+                [PROCESS_TABLE + counter * 16 + 4] = READY;
+            endif;
+            counter = counter + 1;
+        endwhile;
+    endif; 
+
+    //decrement the process count
+    [SEMAPHORE_TABLE + semID * 4 + 1] = [SEMAPHORE_TABLE + semID * 4 + 1] -1;
+
+    return;
+endif;
+
+
+//this is the acquire inode
+if (functionNum == 4 ) then
+    alias inode_index R2;
+    alias current_pid R3;
+
+    
+    while ([FILE_STATUS_TABLE + 4 * inode_index + 0]  != -1) do
+        [PROCESS_TABLE + current_pid * 16 + 4] = WAIT_FILE;
+        [PROCESS_TABLE + current_pid * 16 + 5] = inode_index;
+        multipush (R1 , R2 , R3);
+        call MOD_5;
+        multipop (R1 , R2 , R3);
+    endwhile;
+    
+    //if the inode is invalid;
+    if ([INODE_TABLE + 16 * inode_index + 1] == -1) then
+        R0 = -1;
+        return;
+    endif;    
+
+    [FILE_STATUS_TABLE + 4 * inode_index + 0] = current_pid;
+    R0 = 0;
+    return;
+
+endif;
+
+//this is the release inode
+if (functionNum == 5) then
+    alias inode_index R2;
+    alias current_pid R3;
+
+    if ([FILE_STATUS_TABLE + 4 * inode_index + 0]  != current_pid  ) then
+    R0 = -1;
+    return;
+    endif;
+
+    //free the lock
+    [FILE_STATUS_TABLE + 4 * inode_index + 0]  = -1;
+
+    alias counter R4 ;
+    counter =0 ;
+    while (counter < 16) do
+        if ([PROCESS_TABLE + 16 * counter + 4] == WAIT_FILE && [PROCESS_TABLE + 16 * counter + 5] == inode_index) then
+            [PROCESS_TABLE + 16 * counter + 4] = READY;
+        endif;
+        counter = counter + 1;
+    endwhile;
+
+    R0 = 0;
+    return;
+endif;
+
+
+//this is for the acquire buffer
+if (functionNum == 1) then
+    alias buffer_number R2;
+    alias current_pid R3;
+
+    while (1) do
+    //if the buffer is locked by some other process
+    if ([BUFFER_TABLE + 4 * buffer_number + 2 ] != -1) then
+        [PROCESS_TABLE + current_pid * 16 + 4] = WAIT_BUFFER;
+        [PROCESS_TABLE + current_pid * 16 + 5] = buffer_number;
+        multipush (R1 , R2 , R3);
+        call MOD_5;
+        multipop (R1 , R2 , R3);
+    else
+        break;
+    endif;
+    endwhile;
+
+    //locking pid is set to the current pid
+    [BUFFER_TABLE + 4 * buffer_number + 2] = current_pid;
+    return;
+endif;
+
+
+//this is for the release buffer
+if (functionNum == 2) then
+
+    alias buffer_number R2;
+    alias current_pid R3;
+
+    if ([BUFFER_TABLE + 4 * buffer_number + 2] != current_pid) then
+        R0 = -1;
+        return;
+    endif;
+
+    //free the lock
+    [BUFFER_TABLE + 4 * buffer_number + 2] = -1;
+
+    //free all the process that are waiting for this
+    alias counter R4;
+    counter = 0;
+    while (counter < 16) do
+        if ([PROCESS_TABLE + 16 * counter + 4] == WAIT_BUFFER && [PROCESS_TABLE + 16 * counter + 5] == current_pid) then
+        [PROCESS_TABLE + 16 * counter + 4] = READY;
+        endif;
+        counter = counter + 1;
+    endwhile;   
+
+    R0 = 0;
+    return;
+endif;
+
+return;

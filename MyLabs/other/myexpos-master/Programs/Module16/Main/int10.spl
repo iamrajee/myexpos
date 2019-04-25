@@ -1,0 +1,14 @@
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 4] = TERMINATED;
+alias iter R0;
+iter = 1;
+
+while(iter < MAX_PROC_NUM) do
+    alias state R1;
+    state = [PROCESS_TABLE + 16 * iter + 4];
+    if(state == READY || state == CREATED) then
+        call MOD_5;
+    endif;
+    iter = iter + 1;
+endwhile;
+
+halt;

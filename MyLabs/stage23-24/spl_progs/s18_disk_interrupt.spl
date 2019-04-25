@@ -1,0 +1,25 @@
+//switch the stack and backup the register
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;
+
+backup;
+
+
+
+//set the status field of the disk status table 
+//setting the disk to be free
+[DISK_STATUS_TABLE + 0] = 0;
+
+alias process_number R1;
+process_number = 0;
+while (process_number < MAX_PROC_NUM) do
+    if ([PROCESS_TABLE + 16 * process_number + 4] == WAIT_DISK) then 
+        [PROCESS_TABLE + 16 * process_number + 4] = READY;
+    endif;
+    process_number = process_number + 1;
+endwhile;
+
+restore;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)];
+ireturn;
+

@@ -1,0 +1,127 @@
+// Device Manager Module
+
+alias functionNum R8;
+alias currentPID R9;
+
+functionNum = R1;
+currentPID = R2;
+
+// Store the function number 8 in register R1 and PID of the curr
+// the System Status table in register R2 (Can use currentPID, as
+// it already contain current PID value).
+
+// Disk Store
+// PID, Page Number, Block Number
+if (functionNum == 1) then
+    // Acquire the lock on the disk device by calling the Acquire_Disk() function
+    multipush(R1, R2, R3, R4, R8, R9);
+    R1 = 3;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R1, R2, R3, R4, R8, R9);
+
+    // Set the LOAD/STORE BIT, PAGE NUMBER and BLOCK NUMBER in the Disk Status Table.
+    [DISK_STATUS_TABLE + 0] = 1; // status
+    [DISK_STATUS_TABLE + 1] = 1; // load / store
+    [DISK_STATUS_TABLE + 2] = R3; // page num
+    [DISK_STATUS_TABLE + 3] = R4; // block num
+
+    // Use the store statement to store the memory page to disk;
+    // store (page_number, block_number);
+    store(R3, R4);
+
+    // Set the state as (WAIT_DISK, - );
+    [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_DISK;
+
+    // Call the switch_context() function from the Scheduler Module.
+    multipush(R1, R2, R3, R4, R8, R9);
+    call MOD_5;
+    multipop(R1, R2, R3, R4, R8, R9);
+
+    return;
+endif;
+
+
+
+// Disk Load
+// takes pid, page number, block number.
+if (functionNum == 2) then
+    
+    // Acquires the disk by invoking the Acquire Disk function in the resource manager module (module 0)
+    multipush(R1, R2, R3, R4, R8, R9);
+    R1 = 3;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R1, R2, R3, R4, R8, R9);
+
+    // Set the Disk Status table entries
+    [DISK_STATUS_TABLE + 0] = 1; // status
+    [DISK_STATUS_TABLE + 1] = 0; // load / store
+    [DISK_STATUS_TABLE + 2] = R3; // page num
+    [DISK_STATUS_TABLE + 3] = R4; // block num
+
+    // Issue the load statement to initiate a disk block to memory page 
+    load(R3, R4);
+
+    // Set the state of the process (with given PID) to WAIT_DISK and invoke the scheduler. 
+    [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_DISK;
+
+    multipush(R1, R2, R3, R4, R8, R9);
+    call MOD_5;
+    multipop(R1, R2, R3, R4, R8, R9);
+    // invoke the scheduler
+    
+ 
+    return;
+endif;
+
+
+// Terminal Write
+// PID, Word
+if (functionNum == 3) then
+
+    multipush(R1, R2, R3, R8, R9);
+    R1 = 8;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R1, R2, R3, R8, R9);
+
+    print R3;
+
+    multipush(R1, R2, R3, R8, R9);
+    R1 = 9;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R1, R2, R3, R8, R9);
+    return;
+
+endif;
+
+// Terminal Read
+if (functionNum == 4) then
+
+    multipush(R1, R2, R3, R8, R9);
+    R1 = 8;
+    R2 = currentPID;
+    call MOD_0; // Call resource manager module.
+    multipop(R1, R2, R3, R8, R9);
+
+    read;
+
+    // Change the state of the current process to WAIT_TERMINAL.
+    [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_TERMINAL;
+
+
+    multipush(R1, R2, R3, R8, R9);
+    call MOD_5; // Invoke the scheduler.
+    multipop(R1, R2, R3, R8, R9);
+    R4 = [PTBR + 2 * (R3 / 512)] * 512 + (R3 % 512);
+    [R4] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 8];
+    return;
+
+endif;
+
+
+return;
+
+

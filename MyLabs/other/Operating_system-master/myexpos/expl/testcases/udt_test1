@@ -1,0 +1,49 @@
+type
+	typedef list
+	{
+		integer a;
+		list left;
+		list right;
+	}
+endtype
+decl
+	integer fact(integer n);
+enddecl
+
+integer fact(integer n)
+{
+	decl
+		integer f;
+	enddecl
+	begin
+		if(n==1) then
+			f=1;
+		else
+			f=n*fact(n-1);
+		endif;
+		return f;
+	end
+}
+
+integer main()
+{
+	decl
+		integer b,res;
+		list k;
+	enddecl
+	begin
+		k = alloc();
+		read(k.a);
+		write(k.a);
+		k.left = alloc();
+		k.right = alloc();
+	
+		k.right.a = 4;
+		k.left.right.a = 5;
+		res = fact(k.right.a);
+		write(res);
+		res = fact(k.left.right.a);
+		write(res);
+		return 0;
+	end	
+}	

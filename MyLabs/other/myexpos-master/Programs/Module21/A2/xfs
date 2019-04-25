@@ -1,0 +1,31 @@
+#!/bin/bash
+./xfs-interface fdisk
+./xfs-interface load --exec ../Programs/Module21/A2/even.xsm
+./xfs-interface load --exec ../Programs/Module21/A2/odd.xsm
+./xfs-interface load --exec ../Programs/Module21/A2/pid.xsm
+./xfs-interface load --exec ../Programs/Module21/A2/fork3.xsm
+./xfs-interface load --init ../Programs/Module21/A2/init.xsm
+./xfs-interface load --idle ../Programs/Module21/A2/idle.xsm
+./xfs-interface load --int=10 ../Programs/Module21/A2/int10.xsm
+./xfs-interface load --exhandler ../Programs/Module21/A2/exe_handler.xsm
+./xfs-interface load --os ../Programs/Module21/A2/os_startup.xsm
+./xfs-interface load --library ../expl/library.lib
+./xfs-interface load --int=timer ../Programs/Module21/A2/timer.xsm
+./xfs-interface load --int=7 ../Programs/Module21/A2/int7.xsm
+./xfs-interface load --module 7 ../Programs/Module21/A2/boot.xsm
+./xfs-interface load --module 5 ../Programs/Module21/A2/scheduler.xsm
+./xfs-interface load --module 0 ../Programs/Module21/A2/module_0.xsm
+./xfs-interface load --module 4 ../Programs/Module21/A2/module_4.xsm
+./xfs-interface load --int=6 ../Programs/Module21/A2/int6.xsm
+./xfs-interface load --int=console ../Programs/Module21/A2/console.xsm
+./xfs-interface load --int=9 ../Programs/Module21/A2/int9.xsm
+./xfs-interface load --int=8 ../Programs/Module21/A2/int8.xsm
+./xfs-interface load --module 1 ../Programs/Module21/A2/module_1.xsm
+./xfs-interface load --module 2 ../Programs/Module21/A2/module_2.xsm
+./xfs-interface load --int=disk ../Programs/Module21/A2/diskint.xsm
+./xfs-interface load --int=11 ../Programs/Module21/A2/int11.xsm
+./xfs-interface load --int=15 ../Programs/Module21/A2/int15.xsm
+
+./xfs-interface dump --inodeusertable
+mv inodeusertable.txt ../Programs/Module21/A2/inodeusertable.txt
+

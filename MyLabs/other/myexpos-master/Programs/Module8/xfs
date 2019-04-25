@@ -1,0 +1,7 @@
+#!/bin/bash
+./xfs-interface load --init ../Programs/Module8/squares.xsm
+./xfs-interface load --int=10 ../Programs/Module8/haltprog.xsm
+./xfs-interface load --exhandler ../Programs/Module8/haltprog.xsm
+./xfs-interface load --os ../Programs/Module8/os_startup.xsm
+./xfs-interface load --library ../expl/library.lib
+./xfs-interface load --int=timer ../Programs/Module8/sample_timer.xsm

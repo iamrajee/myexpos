@@ -1,0 +1,13 @@
+#!/bin/bash
+./spl ../Programs/Module16/Main/haltprog.spl
+./spl ../Programs/Module16/Main/os_startup.spl
+./spl ../Programs/Module16/Main/timer.spl
+./spl ../Programs/Module16/Main/int7.spl
+./spl ../Programs/Module16/Main/boot.spl
+./spl ../Programs/Module16/Main/int10.spl
+./spl ../Programs/Module16/Main/scheduler.spl
+./spl ../Programs/Module16/Main/module_0.spl
+./spl ../Programs/Module16/Main/module_4.spl
+./spl ../Programs/Module16/Main/console.spl
+./spl ../Programs/Module16/Main/int6.spl
+# ./spl ../Programs/Module16/Main/int6.spl

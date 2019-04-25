@@ -1,0 +1,91 @@
+// Device Manager Module
+
+alias functionNum R8;
+alias currentPID R9;
+
+functionNum = R1;
+currentPID = R2;
+
+// Store the function number 8 in register R1 and PID of the curr
+// the System Status table in register R2 (Can use currentPID, as
+// it already contain current PID value).
+
+
+// Disk Load
+// takes pid, page number, block number.
+if (functionNum == 2) then
+    
+    // Acquires the disk by invoking the Acquire Disk function in the resource manager module (module 0)
+    multipush(R0, R1, R2, R3, R4);
+    R1 = 3;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R0, R1, R2, R3, R4);
+
+    // Set the Disk Status table entries
+    [DISK_STATUS_TABLE + 0] = 1; // status
+    [DISK_STATUS_TABLE + 1] = 0; // load / store
+    [DISK_STATUS_TABLE + 2] = R3; // page num
+    [DISK_STATUS_TABLE + 3] = R4; // block num
+
+    // Issue the load statement to initiate a disk block to memory page 
+    load(R3, R4);
+
+    // Set the state of the process (with given PID) to WAIT_DISK and invoke the scheduler. 
+    [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_DISK;
+
+    // invoke the scheduler
+    call MOD_5;
+ 
+    return;
+endif;
+
+
+// Terminal Write
+if (functionNum == 3) then
+
+    multipush(R0, R1, R2, R3);
+    R1 = 8;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R0, R1, R2, R3);
+
+    print R3;
+
+    multipush(R0, R1, R2, R3);
+    R1 = 9;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R0, R1, R2, R3);
+    return;
+
+endif;
+
+// Terminal Read
+if (functionNum == 4) then
+
+    multipush(R0, R1, R2, R3);
+    R1 = 8;
+    R2 = currentPID;
+    call MOD_0; // Call resource manager module.
+    multipop(R0, R1, R2, R3);
+
+    read;
+
+    // Change the state of the current process to WAIT_TERMINAL.
+    [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_TERMINAL;
+
+
+    multipush(R0, R1, R2, R3);
+    call MOD_5; // Invoke the scheduler.
+    multipop(R0, R1, R2, R3);
+    R3 = [PTBR + 2 * (R3 / 512)] * 512 + (R3 % 512);
+    [R3] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 8];
+    return;
+
+endif;
+
+
+return;
+
+

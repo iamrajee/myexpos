@@ -1,0 +1,79 @@
+// exception handler
+
+// print "exe";
+// print EC;
+// print EPN;
+// print EIP;
+
+// Set the MODE FLAG to -1 in the process table of the current process.
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = -1;
+
+// Switching to kernel stack.
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = SP;
+//R0 = 0;
+//breakpoint;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+backup;
+
+multipush(EIP);
+
+//  If the cause of the exception is other than page fault (EC is not equal to 0) or if the user stack is full
+if (EC != 0 || [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] == PTLR * 512 - 1) then
+	if ([PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] == PTLR * 512 - 1) then
+		print "stack";
+	endif;
+	if (EC == 1) then
+		print "Ill ins";
+	endif;
+	if (EC == 2) then
+		print "Ill mem";
+	endif;
+	if (EC == 3) then
+		print "Arith";
+	endif;
+
+	// Then invoke the Exit Process function to halt the process and invoke the scheduler. 
+	//R0 = 0;
+	R1 = 3;
+	R2 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_1;
+
+	call MOD_5;
+endif;
+
+// If page fault is caused due to a code page, then get the code block number to be loaded from the disk map table.
+if (EPN >= 4 && EPN <= 7) then
+	// invoke the Get Code Page function present in the memory manager module.
+	alias pid R3;
+	pid = [SYSTEM_STATUS_TABLE + 1];
+	multipush(R3);
+	R1 = 5;
+	R2 = [DISK_MAP_TABLE + pid * 10 + EPN];
+	call MOD_2;
+	multipop(R3);
+	// Update the page table entry for this code 
+	[PTBR + 2 * EPN] = R0;
+	[PTBR + 2 * EPN + 1] = "1100";
+endif;
+
+// If page fault is caused due to a heap page, then invoke the Get Free Page function present in the memory manager module. 
+if (EPN == 2 || EPN == 3) then
+	R1 = 1;
+	call MOD_2;
+	[PTBR + 2 * EPN] = R0;
+	[PTBR + 2 * EPN + 1] = "1110";
+endif;
+
+multipop(EIP);
+restore;
+
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+
+// Increment the stack pointer, store the EIP value onto the location pointed to by SP and return to the user mode.
+SP = SP + 1;
+[[PTBR + 2 * (SP / 512)] * 512 + (SP % 512)] = EIP;
+
+//breakpoint;
+ireturn;

@@ -1,0 +1,39 @@
+//=================== MODULE 4 ====================
+//print "Device";
+alias functionNum R1;
+alias currentPID R2;
+
+if(functionNum == 3) then
+
+	//============== Calling Acquire Terminal ===============
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	R1 = 8;
+	R2 = currentPID;
+
+	// calling module 0
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+	print R3;
+	//=========================================================
+
+	//============== Calling Release Terminal =================
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	R1 = 9;
+	R2 = currentPID;
+
+	// calling module 0
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+endif;
+
+return;

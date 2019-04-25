@@ -1,0 +1,27 @@
+decl
+	integer f1(integer &h),g[100];
+enddecl
+integer f1(integer &h)
+{
+	begin
+		read(h);
+		return 0;
+	end
+}
+integer main()
+{
+	decl
+		integer d,s;
+		boolean a;
+	enddecl
+	begin
+		a = true;
+		d = 35;
+		g[d] = 100;
+		g[36] = 200;
+		write(d);
+		s = f1(d);
+		write(g[d]);
+		return 0;
+	end
+}

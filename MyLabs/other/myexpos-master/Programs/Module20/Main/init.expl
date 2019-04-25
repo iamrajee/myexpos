@@ -1,0 +1,11 @@
+int main() {
+    decl
+        int x, y, a, b;
+    enddecl
+    begin
+        y = exposcall("Write", -2, "Filename");
+        y = exposcall("Read", -1, b);
+        y = exposcall("Exec", b);
+        return 0;
+    end
+}

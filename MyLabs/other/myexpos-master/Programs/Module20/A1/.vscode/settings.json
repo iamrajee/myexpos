@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.spl": "cpp"
+    },
+    "python.pythonPath": "/usr/bin/python3"
+}

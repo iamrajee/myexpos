@@ -1,0 +1,13 @@
+fdisk
+load --os ../MyLabs/Lab15/os_startup.xsm
+load --library ../expl/library.lib
+load --module 0 ../MyLabs/Lab15/resource_manager_module0.xsm
+load --module 4 ../MyLabs/Lab15/device_manager_module4.xsm
+load --module 5 ../MyLabs/Lab15/scheduler_module5.xsm
+load --module 7 ../MyLabs/Lab15/boot_module.xsm
+load --idle ../MyLabs/Lab15/idle.xsm
+load --init ../MyLabs/Lab15/odd.xsm
+load --int=timer ../MyLabs/Lab15/timer_interrupt.xsm
+load --int=7 ../MyLabs/Lab15/write_interrupt_int7.xsm
+load --int=10 ../MyLabs/Lab15/int10_module.xsm
+load --exec ../MyLabs/Lab15/even.xsm

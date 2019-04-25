@@ -1,0 +1,44 @@
+decl
+	integer swap(integer &x,&y),func(integer z);
+enddecl
+integer func(integer z)
+{
+	decl
+		integer m;
+	enddecl
+	begin
+		z = z + 1;
+		m = z;
+		write(m);
+		return 0;
+	end
+}
+
+integer swap(integer &x,&y)
+{
+	decl
+		integer k;
+	enddecl
+	begin
+		k = x;
+		x = y;
+		y = k;
+		write(y);
+		k = func(y);
+		return 0;
+	end
+}
+integer main()
+{
+	decl
+		integer a,b,res;
+	enddecl
+	begin
+		a = 41;
+		b = 5232;
+		res = swap(a,b);
+		write(a);
+		write(b);
+		return 0;
+	end
+}

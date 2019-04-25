@@ -1,0 +1,5 @@
+#!/bin/bash
+./spl ../Programs/Module10/Assignment/haltprog.spl
+./spl ../Programs/Module10/Assignment/os_startup.spl
+./spl ../Programs/Module10/Assignment/timer.spl
+./spl ../Programs/Module10/Assignment/print.spl

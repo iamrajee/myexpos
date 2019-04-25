@@ -1,0 +1,29 @@
+// Switching to kernel stack.
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = SP;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+// back up the register context. 
+backup;
+
+// Set the STATUS field in the Disk Status table to 0 indicating that disk is no longer busy. 
+[DISK_STATUS_TABLE] = 0;
+
+// Go through all the process table entries, and change the state of the process to READY, which is in WAIT_DISK state.
+
+alias iter R4;
+iter = 1;
+while(iter < MAX_PROC_NUM) do
+    alias state R5;
+    if(([PROCESS_TABLE + 16 * iter + 1] == iter) && ([PROCESS_TABLE + 16 * iter + 4] == WAIT_DISK)) then
+        [PROCESS_TABLE + 16 * iter + 4] = READY;
+    endif;
+    iter = iter + 1;
+endwhile;
+
+// Restore the register context
+restore;
+
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+
+ireturn;

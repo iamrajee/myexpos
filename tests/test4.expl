@@ -1,0 +1,28 @@
+int main()
+{
+decl
+     int pid, temp, num;
+     string fname;
+enddecl
+begin
+    
+    num=1;
+
+    pid = exposcall("Fork");
+
+    if (pid == 0) then      
+	while ( num <= 500 ) do
+           temp = exposcall ("Delete", "print.xsm");
+           num = num + 1;
+        endwhile;
+    else  
+    	temp = exposcall ("Exec", "print.xsm");
+    	if (temp < 0) then
+      		temp = exposcall ("Write", -2, "EXEC FAIL");
+    	endif;
+    endif;
+
+    return 0;
+end
+}
+

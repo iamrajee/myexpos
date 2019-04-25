@@ -1,0 +1,12 @@
+decl
+	int a;
+enddecl
+
+int main()
+{
+	begin
+		read(a);
+		write(a);
+		return 1;
+	end
+}

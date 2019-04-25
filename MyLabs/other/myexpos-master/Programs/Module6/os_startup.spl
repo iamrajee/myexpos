@@ -1,0 +1,22 @@
+loadi(65,7);
+loadi(66,8); // Load the INIT program from the disk to the memory
+loadi(22,35);
+loadi(23,36); // Load the INT10 module from the disk to the memory.
+loadi(2, 15);
+loadi(3, 16); // Load the exception handler routine from the disk to the memory.
+ PTBR = PAGE_TABLE_BASE;
+ PTLR = 3; //You need two pages for storing the INIT program code
+ // (loaded from disk blocks 7 and 8) and one additional page for stack
+// In the page table of INIT, set page numbers 65 and 66 for code and 76 for stack. (Pages 67 - 75 are reserved)
+[PTBR+0] = 65;
+[PTBR+1] = "0100";
+[PTBR+2] = 66;
+[PTBR+3] = "0100";
+[PTBR+4] = 76;
+[PTBR+5] = "0110";
+[76*512] = 0;
+// Stack of INIT process is allocated at physical page number 76. Its corresponding physical address is 76 * 512.
+SP = 2*512;
+ireturn; 
+
+

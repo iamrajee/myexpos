@@ -1,0 +1,18 @@
+//This is to print the sum of square upto 20 numbers
+alias counter R0;
+alias sum R1;
+alias welcome R2;
+
+counter = 0;
+sum = 0;
+welcome = "welcome!";
+print welcome;
+
+
+while (counter <= 20) do
+    sum = sum + counter * counter;
+    breakpoint;
+    counter = counter + 1;
+    endwhile;
+
+print sum;

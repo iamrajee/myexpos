@@ -1,0 +1,36 @@
+//this is the timer interrupt service to make the scheduling
+
+
+//step 1
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)] = SP;     //saving the current stack to UTPR field of the current process
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;         //setting the SP to the kernel stack now.
+                                                                                // It is the beginning of the user page area
+//step 2
+backup;
+
+//not executing the if block
+
+//changing the state of the current process to READY from the RUNNING
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 4)] = READY;
+
+//incrementing the tick field
+alias process_number R0;
+process_number = 0;
+while (process_number < 16) do
+    [PROCESS_TABLE + 16 * process_number + 0] = [PROCESS_TABLE + 16 * process_number + 0] + 1; 
+    process_number = process_number + 1;
+endwhile;
+
+
+//calling the scheduler module
+call MOD_5;
+
+restore;
+
+//set SP to the top of the user stack
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+
+//setting the mode flag
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+
+ireturn;

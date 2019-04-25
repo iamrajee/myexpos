@@ -1,0 +1,198 @@
+//print "hi boot";
+//loading the interrupt - 10
+loadi(22 , 35);
+loadi(23 , 36);
+
+//this is to load the exec file
+loadi(83 , 69);          //69 is the disk block in which the exec file is loaded
+                        //83 is the memory block in which the exec file is loaded
+
+//loading the exception handler
+loadi(2 , 15);
+loadi(3, 16);
+
+//this is for loading the library code from the disk
+//library is stored in 13 , 14 of the disk
+loadi(63 , 13);
+loadi(64 , 14);
+
+//this is to load the timer routine 
+loadi (4 , 17);
+loadi (5 , 18);
+
+//this is to add the interrupt 7
+loadi (16, 29);
+loadi (17 , 30);
+
+loadi(65,7); // init block is in page 7, 8
+loadi(66,8);
+
+//loading the module 0
+loadi(40 , 53);
+loadi(41 , 54);
+
+//loading the module 4
+loadi (48 , 61);
+loadi(49 , 62); 
+
+//this is for the console interrupt handler
+//memory is 8 9 
+loadi ( 8, 21);
+loadi ( 9, 22);
+
+//this is for the interrupt 6
+loadi ( 14, 27);
+loadi ( 15, 28);
+
+//this is for the disk interrupt handler
+loadi (6 , 19);
+loadi (7 , 20);
+
+
+//initialise the disk  status table
+[DISK_STATUS_TABLE] = 0;
+
+//initialise the terminal status table
+[TERMINAL_STATUS_TABLE] = 0;
+
+
+//this is to load the scheduler ; scheduler must be in the module 5
+//disk block for the module 5 is 63 and 64
+//memory pages for the module 5 is 50 and 51
+//loading the module 5
+loadi (50 , 63);
+loadi (51 , 64);
+
+//module 1
+loadi (42 , 55);
+loadi (43 , 56);
+
+//module 2
+loadi (44, 57);
+loadi (45, 58);
+
+//interrupt 9
+loadi (20, 33);
+loadi (21, 34);
+
+//load the interrupt 8
+loadi (18 , 31);
+loadi (19 , 32);
+
+//load the interrupt 10
+loadi (22 , 35);
+loadi (23 , 36);
+
+//interrupt 11
+loadi (24 , 37);
+loadi (25 , 38);
+
+//interrupt 15
+loadi (32 , 45);
+loadi (33 , 46);
+
+//inode table
+loadi ( 59 , 3);
+loadi ( 60 , 4);
+
+PTBR = PAGE_TABLE_BASE + 20;
+PTLR = 10;
+
+//setting the valid bits
+//library
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+
+//Heap
+[PTBR + 4] = 78;
+[PTBR + 5] = "0110"; 
+[PTBR + 6] = 79;
+[PTBR + 7] = "0110";
+
+
+//code
+[PTBR + 8] = 65;
+[PTBR + 9] = "0100";
+[PTBR + 10] = 66;
+[PTBR + 11] = "0100";
+[PTBR + 12] = -1;
+[PTBR + 13] = "0000";
+[PTBR + 14] = -1;
+[PTBR + 15] = "0000";
+
+//stack
+[PTBR + 16] = 76;
+[PTBR + 17] = "0110";
+[PTBR + 18] = 77;
+[PTBR + 19] = "0110";
+
+//this is for the process table of the init process
+[PROCESS_TABLE + 16 + 1] = 1;
+[PROCESS_TABLE + 11 + 16] = 80;
+[PROCESS_TABLE + 16 + 13] = 8 * 512;
+[PROCESS_TABLE + 12 + 16] = 0;
+[PROCESS_TABLE + 14 + 16] = PAGE_TABLE_BASE + 20;
+[PROCESS_TABLE + 15 + 16] = 10;
+[PROCESS_TABLE + 16 + 4] = CREATED;
+
+[76 * 512] = [65 * 512 + 1];
+
+//updating the per process page table ; last 16 words of the per process table is initialized to -1
+    alias entry R8;
+    entry = [PROCESS_TABLE + 16 + 11] * 512 + (512 - 16);
+    alias counter2 R9;
+    counter2 = 0;
+    while (counter2 < 16) do
+        [entry] = -1;
+        counter2 = counter2 + 1;
+        entry = entry +1;
+    endwhile;
+
+//marking the process table entry for each of the processes
+//just making the process table entry for each of the processes to TERMINATED
+alias process_number R0;
+process_number = 2;
+while (process_number < 16) do
+    [PROCESS_TABLE + 16 * process_number + 4] = TERMINATED;
+    process_number = process_number + 1;
+endwhile;
+
+//for the stage 17 memory list part
+alias counter R5;
+counter = 0;
+alias free_pages R6;
+free_pages = 0;
+while (counter < 83 ) do
+    [MEMORY_FREE_LIST + counter] = 1;
+    counter = counter + 1;
+endwhile;
+
+counter = 83;
+while (counter <= 127) do
+    [MEMORY_FREE_LIST + counter] = 0;       //freee pages
+    counter = counter + 1;
+    free_pages = free_pages + 1;
+endwhile;
+
+[SYSTEM_STATUS_TABLE + 3] = 0;
+[SYSTEM_STATUS_TABLE + 2] = free_pages;  
+
+
+[DISK_MAP_TABLE + 16 + 0] = -1;	//user area
+[DISK_MAP_TABLE + 16 + 1] = -1;	//unused
+[DISK_MAP_TABLE + 16 + 2] = -1;	//heap1
+[DISK_MAP_TABLE + 16 + 3] = -1;	//heap2
+[DISK_MAP_TABLE + 16 + 4] = 7;	//code1
+[DISK_MAP_TABLE + 16 + 5] = 8;	//code2
+[DISK_MAP_TABLE + 16 + 6] = -1;	//code3
+[DISK_MAP_TABLE + 16 + 7] = -1;	//code4
+[DISK_MAP_TABLE + 16 + 8] = -1;	//stack1
+[DISK_MAP_TABLE + 16 + 9] = -1;	//stack2
+
+//disk free list
+loadi (61 , 2);
+
+return;

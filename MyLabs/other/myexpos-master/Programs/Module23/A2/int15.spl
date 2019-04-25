@@ -1,0 +1,64 @@
+// Shutdown system call
+
+
+alias pid R5;
+alias processTable R6;
+alias userSP R7;
+pid = [SYSTEM_STATUS_TABLE + 1];
+processTable = PROCESS_TABLE + 16 * pid;
+
+// Switch to the kernel stack and set the MODE FLAG in the process table to the system call number.
+userSP = SP;
+[processTable + 13] = SP;
+SP = [processTable + 11] * 512 - 1;
+[processTable + 9] = 21;
+
+// Shutdown system call can be invoked only from the shell process of the root user.
+if (pid != 1 || [processTable + 3] != 1) then
+	[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = -1;
+	[PROCESS_TABLE + pid * 16 + 9] = 0;
+	SP = [PROCESS_TABLE + pid * 16 + 13];
+	ireturn;
+endif;
+
+// 1	Disk Store	PID, Page Number, Block Number	NIL
+// inode table 59, 60 to 3, 4
+// root file 62 to 5
+// disk free list 61 to 2
+// Commit the changes made in the memory copies of the inode table (along with user table), 
+// the root file and the disk free list by storing them back
+
+// inode table + user table
+multipush(R5, R6, R7);
+R1 = 1;
+R2 = pid;
+R3 = 59;
+R4 = 3;
+call MOD_4;
+multipop(R5, R6, R7);
+multipush(R5, R6, R7);
+R1 = 1;
+R2 = pid;
+R3 = 60;
+R4 = 4;
+call MOD_4;
+multipop(R5, R6, R7);
+// root file
+multipush(R5, R6, R7);
+R1 = 1;
+R2 = pid;
+R3 = 62;
+R4 = 5;
+call MOD_4;
+multipop(R5, R6, R7);
+// disk free list
+multipush(R5, R6, R7);
+R1 = 1;
+R2 = pid;
+R3 = 61;
+R4 = 2;
+call MOD_4;
+multipop(R5, R6, R7);
+
+// Finally, halt the system using the SPL statement halt.
+halt;

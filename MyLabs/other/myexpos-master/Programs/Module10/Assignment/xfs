@@ -1,0 +1,9 @@
+#!/bin/bash
+./xfs-interface load --init ../Programs/Module10/Assignment/numbers.xsm
+./xfs-interface load --int=10 ../Programs/Module10/Assignment/haltprog.xsm
+./xfs-interface load --exhandler ../Programs/Module10/Assignment/haltprog.xsm
+./xfs-interface load --os ../Programs/Module10/Assignment/os_startup.xsm
+./xfs-interface load --library ../expl/library.lib
+./xfs-interface load --int=timer ../Programs/Module10/Assignment/timer.xsm
+./xfs-interface load --int=7 ../Programs/Module10/Assignment/print.xsm
+

@@ -1,0 +1,8 @@
+./expl ../Programs/Module20/A2/odd.expl
+mv assemblycode.xsm ../Programs/Module20/A2/odd.xsm
+./expl ../Programs/Module20/A2/even.expl
+mv assemblycode.xsm ../Programs/Module20/A2/even.xsm
+./expl ../Programs/Module20/A2/idle.expl
+mv assemblycode.xsm ../Programs/Module20/A2/idle.xsm
+./expl ../Programs/Module20/A2/init.expl
+mv assemblycode.xsm ../Programs/Module20/A2/init.xsm

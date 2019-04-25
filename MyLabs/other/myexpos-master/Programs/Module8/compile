@@ -1,0 +1,4 @@
+#!/bin/bash
+./spl ../Programs/Module8/haltprog.spl
+./spl ../Programs/Module8/os_startup.spl
+./spl ../Programs/Module8/sample_timer.spl

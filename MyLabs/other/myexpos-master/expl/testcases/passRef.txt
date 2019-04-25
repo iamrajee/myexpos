@@ -1,0 +1,32 @@
+type
+	typedef list{
+		integer a;
+		list left;
+		list right;
+	}
+endtype
+decl
+	integer a(integer &x), var[10], result, y;
+	list root;
+enddecl
+integer a(integer &x){
+begin
+	write(x);
+	x = 314;
+	write(x);
+
+	return x;
+end
+}
+integer main(){
+begin
+	root = null;
+	root = alloc();
+	root.a=10;
+	read(var[5]);
+	write(var[5]);
+	result = a(var[5]);
+	write(var[5]);
+	return 0;
+end
+}

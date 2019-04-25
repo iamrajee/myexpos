@@ -1,0 +1,66 @@
+//this is the os_start code 
+//loading the init program
+loadi(65 , 7);
+loadi(66 , 8);
+
+//loading the interrupt - 10
+loadi(22 , 35);
+loadi(23 , 36);
+
+//loading the exception handler
+loadi(2 , 15);
+loadi(3, 16);
+
+//this is for loading the library code from the disk
+//library is stored in 13 , 14 of the disk
+loadi(63 , 13);
+loadi(64 , 14);
+
+//this is to load the timer routine 
+loadi (4 , 17);
+loadi (5 , 18);
+
+
+//setting the page table
+//two for code and one for stack
+PTBR = PAGE_TABLE_BASE;
+PTLR = 10;
+
+//setting the valid bits
+//library
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+
+//Heap
+[PTBR + 4] = 78;
+[PTBR + 5] = "0110"; 
+[PTBR + 6] = 79;
+[PTBR + 7] = "0110";
+
+
+//code
+[PTBR + 8] = 65;
+[PTBR + 9] = "0100";
+[PTBR + 10] = 66;
+[PTBR + 11] = "0100";
+[PTBR + 12] = -1;
+[PTBR + 13] = "0000";
+[PTBR + 14] = -1;
+[PTBR + 15] = "0000";
+
+//stack
+[PTBR + 16] = 76;
+[PTBR + 17] = "0110";
+[PTBR + 18] = 77;
+[PTBR + 19] = "0110";
+
+//setting the stack pointer
+[76 * 512] = [65 * 512 + 1];
+SP = 8 * 512;
+
+//to transfer control the user program
+ireturn;
+

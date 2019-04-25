@@ -1,0 +1,68 @@
+// Memory Manager Module
+
+alias functionNum R1;
+
+// Get Free Page
+if (functionNum == 1) then
+
+    // Increment WAIT_MEM_COUNT field in the system status table.
+    [SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] + 1;
+
+    // Set the state of the invoked process as WAIT_MEM.
+    [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 4] = WAIT_MEM;
+
+    // While memory is full (MEM_FREE_COUNT will be 0), do following.
+    while ([SYSTEM_STATUS_TABLE + 2] == 0) do
+
+        // Schedule other process by invoking the context switch module. // blocking the process
+        multipush(R1, R2);
+        call MOD_5;
+        multipop(R1, R2);
+    endwhile;
+
+    // Decrement the WAIT_MEM_COUNT field and MEM_FREE_COUNT field in the system status table.
+    [SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] - 1;
+    [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+    alias iter R4;
+    iter = 0;
+
+    // Find a free page using memory free list and set the corresponding entry as 1
+    while (([MEMORY_FREE_LIST + iter] == 1) && iter < 128) do
+        iter = iter + 1;
+    endwhile;
+
+    if (iter == 128) then
+        print ("mem list fishy");
+    else 
+        // store the obtained free page number in R0 as return value.
+        [MEMORY_FREE_LIST + iter] = 1;
+        R0 = iter;
+    endif;
+    return;
+endif;
+
+// Release Page
+if (functionNum == 2) then
+
+    // The Page number to be released is present in R2.
+    [MEMORY_FREE_LIST + R2] = 0;
+
+    // increment the MEM_FREE_COUNT in the system status table.
+    [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;
+
+    alias iter R4;
+    iter = 1;
+
+    // Update the STATUS to READY for all processes (with valid PID) which have STATUS as WAIT_MEM.
+    while(iter < MAX_PROC_NUM) do
+        if([PROCESS_TABLE + 16 * iter + 4] == WAIT_MEM) then
+            [PROCESS_TABLE + 16 * iter + 4] = READY;
+        endif;
+        iter = iter + 1;
+    endwhile;
+    return;
+endif;
+
+return;
+

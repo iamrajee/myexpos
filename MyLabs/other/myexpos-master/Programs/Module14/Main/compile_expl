@@ -1,0 +1,6 @@
+./expl ../Programs/Module14/Main/odd.expl
+mv assemblycode.xsm ../Programs/Module14/Main/odd.xsm
+./expl ../Programs/Module14/Main/even.expl
+mv assemblycode.xsm ../Programs/Module14/Main/even.xsm
+./expl ../Programs/Module14/Main/idle.expl
+mv assemblycode.xsm ../Programs/Module14/Main/idle.xsm

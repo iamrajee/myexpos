@@ -1,0 +1,15 @@
+//================INT 10 module=====================
+print "INT 10";
+[PROCESS_TABLE + (([SYSTEM_STATUS_TABLE + 1])*16) + 9] = 10;
+[PROCESS_TABLE + (([SYSTEM_STATUS_TABLE + 1])*16) + 13] = SP;
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16) + 11]*512) - 1;
+
+//=========== CALLING EXIT PROCESS FUNCTION ============
+alias functionNum R1;
+alias PID R2;
+functionNum = 3;
+PID = [SYSTEM_STATUS_TABLE + 1];
+call MOD_1;
+//=======================================================
+
+call MOD_5;

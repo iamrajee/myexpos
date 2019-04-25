@@ -1,0 +1,15 @@
+xfs-interface
+run.sh
+disk.xfs
+*.dat
+*~
+*.o
+*.xsm
+*.txt
+*.tmp
+*.dSYM
+temp*
+test
+inodetable.txt
+rootfile.txt
+tags

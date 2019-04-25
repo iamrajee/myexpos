@@ -1,0 +1,26 @@
+int main()
+{
+decl
+     int temp, permission, fileDesc;
+     string filename, word;
+enddecl
+begin
+    temp = exposcall("Write",-2,"Enter fname");
+    temp = exposcall("Read",-1, filename);
+    fileDesc = exposcall ("Open", filename);
+    
+    if (fileDesc >= 0) then
+      temp = exposcall ("Read", fileDesc, word);
+      while (temp == 0) do
+        write(word);
+        temp = exposcall ("Read", fileDesc, word);
+      endwhile;
+    else 
+      
+      temp = exposcall ("Write", -2, "Error");
+    endif;
+
+    return 0;
+end
+}
+

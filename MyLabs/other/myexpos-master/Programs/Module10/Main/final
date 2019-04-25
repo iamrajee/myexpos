@@ -1,0 +1,9 @@
+#!/bin/bash
+cp ./compile ../../../spl/
+chmod +x ../../../spl/compile
+cd ../../../spl/ && ./compile
+cd ../Programs/Module10/Main/
+cp ./xfs ../../../xfs-interface/
+chmod +x ../../../xfs-interface/xfs
+cd ../../../xfs-interface/ && ./xfs
+cd ../xsm/ && ./xsm --timer 10

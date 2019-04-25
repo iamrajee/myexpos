@@ -1,0 +1,241 @@
+//This is the interrupt to implement the wait, signal , getpid and getppid system calls
+//R14 , R15 , 
+alias systemNum R14;
+alias userSP R15;
+alias counter R8;
+alias pentryAd R4;
+alias retAddr R5;
+
+//userSP-5 is the position that stores the system call number
+userSP = SP;
+systemNum = [([PTBR + 2 * ((userSP - 5) / 512) ] * 512 )  + ((userSP - 5) % 512)];
+
+
+pentryAd = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+retAddr = ([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512);
+//this is to switch to the kernel stack
+[pentryAd + 13] = SP;
+SP = [pentryAd + 11] * 512 - 1;
+
+
+//this is for the create system call
+if (systemNum == 1) then
+
+    //setting the mode flag to 1
+    [pentryAd + 9] = systemNum;
+
+    //now check if the file is present in the system
+    alias fileName R13;
+    alias permission R11;
+    fileName = [([PTBR + 2 * ((userSP - 4) / 512) ] * 512 )  + ((userSP - 4) % 512)];
+    permission = [([PTBR + 2 * ((userSP - 3) / 512) ] * 512 )  + ((userSP - 3) % 512)];
+
+    //this is to check if the file is present in the system then return the value of 0
+    
+    counter =0;
+    
+    //search through all the files
+    while (counter < 60) do
+        if ([INODE_TABLE + counter * 16 + 1] == fileName) then
+            [retAddr] = 0;
+            [pentryAd + 9] = 0;
+            SP = userSP;
+            ireturn;
+        endif;
+        counter = counter + 1;
+    endwhile;
+
+    
+    //find the index of the free entry in the inode INODE_TABLE
+    alias free_entry R12;
+    free_entry = -1;
+    counter =0;
+    while (counter <  60) do
+        if ([INODE_TABLE + counter * 16 + 1] == -1) then
+            free_entry = counter;
+            break;
+        endif;
+        counter = counter + 1;
+    endwhile;
+
+    //if no free entry is found then return -1
+    if (counter >= 60) then
+
+        //returning the value of -1 if no free entry is found
+        [retAddr] = -1;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    //this is to be done if the free entry is found
+    alias entryAddress R6;
+    entryAddress = INODE_TABLE + 16 * free_entry;
+    [entryAddress + 0 ] =  DATA;                 //this is the file type
+    [entryAddress + 1 ] =  fileName;             //this is for the name of the file
+    [entryAddress + 2 ] = 0;                    //size of the file is set to 0
+    [entryAddress + 8 ] = -1;                   //all the block numbers are set to -1
+    [entryAddress + 9 ] = -1;
+    [entryAddress + 10 ] = -1;
+    [entryAddress + 11 ] = -1;
+    [entryAddress + 3 ] = [pentryAd + 3]; //userid of the process                      //for the userID of the process
+    [entryAddress + 4 ] = permission;            //this is for the permission
+
+
+    //this is for the root file entry
+    alias rootAddr R7;
+    rootAddr = ROOT_FILE + 8 * free_entry;
+    [rootAddr + 0] = fileName;           //fileName
+    [rootAddr + 1] = 0;                  //filesize
+    [rootAddr + 2] = DATA;               //filetype
+    [rootAddr + 3] = [USER_TABLE + 2*[pentryAd + 3] + 0];    //this is for the user name
+    [rootAddr + 4] = permission;
+
+    //returning from the system call
+    [retAddr] = 0;
+endif;
+
+//this is for the delete system call
+if (systemNum == 4) then
+
+    //setting the mode flag to 1
+    [pentryAd + 9] = systemNum;
+
+    //taking the file name
+    alias fileName R13;
+    fileName = [([PTBR + 2 * ((userSP - 4) / 512) ] * 512 )  + ((userSP - 4) % 512)];
+
+    //finding the index of the file in the inode INODE_TABLE
+    
+    alias inode_index R12;
+    
+    inode_index = -1;
+    counter = 0;
+
+    while (counter < 60) do
+    if ([INODE_TABLE + counter * 16 + 1] == fileName) then
+            inode_index = counter;
+            break;
+    endif;
+    counter = counter + 1;
+    endwhile;
+
+    //if the file is not present then return 0
+    if (counter >= 60) then
+        [retAddr] = -1;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    //if the file is not the data file then return -1
+    alias iEntryaddr R6;
+    iEntryaddr = INODE_TABLE + inode_index * 16;
+
+    if ([iEntryaddr + 0] != DATA) then
+        [retAddr] = -1;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+
+    //if the user id permission is exclusive
+    if ([iEntryaddr + 4] == EXCLUSIVE) then
+
+        //if the current user is not root and current user does not own the file
+        if ([pentryAd + 3] != 1 && [pentryAd + 3] != [iEntryaddr + 3] ) then
+            [retAddr ] = -1;
+            [pentryAd + 9] = 0;
+            SP = userSP;
+            ireturn;
+        endif;
+
+    endif;
+
+    //calling the acquire inode function in the resource manager module
+    multipush (R14 , R15 , R13 , R8 , R12 , R4 , R5 , R6) ;
+    R1 = 4;                               //acquire inode function number
+    R2 = inode_index;                     //inode index;
+    R3 = [SYSTEM_STATUS_TABLE + 1];       // pid of the current process
+    call MOD_0;
+    if (R0 == -1) then
+        [retAddr] = -1;
+        SP = userSP;
+        [pentryAd + 9] = 0;
+        ireturn; 
+    endif;
+    multipop (R14 , R15 , R13 , R8 , R12 , R4, R5 , R6);
+
+    //check if the file open count is -1 in the file status table. If not, then release the lock and return -2;
+    if ([FILE_STATUS_TABLE + 4 * inode_index + 1] != -1) then
+    
+        //release the lock
+        multipush (R14 , R15 , R13 , R8 , R12, R4, R5  , R6);
+        R1 = 5;                               //release inode function number
+        R2 = inode_index;                     //inode index;
+        R3 = [SYSTEM_STATUS_TABLE + 1];       // pid of the current process
+        call MOD_0;
+        multipop (R14 , R15 , R13 , R8 , R12 , R4 , R5 , R6);
+    
+        [retAddr] = -2;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    counter =0;
+    
+    alias bufferEntry R9;
+    while (counter < 4) do
+        if ([iEntryaddr + 8 + counter] != -1) then
+        
+
+            bufferEntry = BUFFER_TABLE + ([iEntryaddr + counter + 8]%MAX_BUFFER);
+            if ([bufferEntry ] == [iEntryaddr + 8 + counter] && [bufferEntry + 1 ] == 1) then
+            [bufferEntry + 1 ] = 0;
+            endif;
+            
+        //calling thre release block
+        multipush (R14 , R15 , R13 , R8 , R12 , R7 , R4 , R5 , R6 );
+        R1 = 4;
+        R2 = [iEntryaddr + 8 + counter];
+        R3 = [SYSTEM_STATUS_TABLE + 1];
+        call MOD_2;
+        multipop (R14 , R15 , R13 , R8 , R12 , R7, R4 , R5 , R6);
+
+
+        endif;
+    counter = counter + 1;
+    endwhile;
+
+    //invalidate the inode table
+    counter =0;
+    while (counter < 16) do
+    [iEntryaddr + counter] = -1;
+    counter = counter + 1;
+    endwhile;
+
+    //invalidate the root table
+    counter = 0;
+    while (counter < 8) do
+        [ROOT_FILE + inode_index * 8 + counter ] = -1;
+        counter =  counter + 1;
+    endwhile;
+
+    //release the lock
+        multipush (R14 , R15 , R13 , R8 , R12 , R9 , R4 , R5 , R6);
+        R1 = 5;                               //release inode function number
+        R2 = inode_index;                     //inode index;
+        R3 = [SYSTEM_STATUS_TABLE + 1];       // pid of the current process
+        call MOD_0;
+        multipop (R14 , R15 , R13 , R8 , R12 , R9 , R4 , R5 , R6);
+
+    //returning from the system call
+    [retAddr] = 0;
+endif;
+
+//this is after using all the system call
+[pentryAd + 9] = 0;   //setting the mode flag
+SP = userSP;
+ireturn;

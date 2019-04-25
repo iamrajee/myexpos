@@ -1,0 +1,4 @@
+./expl ../Programs/Module13/Main/numbers.expl
+mv assemblycode.xsm ../Programs/Module13/Main/numbers.xsm
+./expl ../Programs/Module13/Main/idle.expl
+mv assemblycode.xsm ../Programs/Module13/Main/idle.xsm

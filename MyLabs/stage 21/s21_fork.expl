@@ -1,0 +1,18 @@
+int main()
+{
+decl
+    int temp, pid, a;
+    string input;
+enddecl
+begin
+          
+    a = 0;
+    while (a < 3) do
+        temp = exposcall ("Fork");
+        a = a+1;
+    endwhile;
+
+    temp = exposcall ("Exec" , "s21_pid.xsm");
+    return 0;
+end 
+}

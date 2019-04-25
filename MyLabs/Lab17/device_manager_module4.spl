@@ -1,0 +1,81 @@
+//=================== MODULE 4 ====================
+//print "Device";
+alias functionNum R1;
+alias currentPID R2;
+alias word R3;
+
+//================ TERMINAL WRITE =================
+if(functionNum == 3) then
+
+	//============== Calling Acquire Terminal ===============
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	functionNum = 8;
+
+	// calling module 0
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+	print word;
+	//=========================================================
+
+	//============== Calling Release Terminal =================
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	functionNum = 9;
+
+	// calling module 0
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+//================================================
+
+//================ TERMINAL READ =================
+
+else if(functionNum == 4) then
+
+	//print "ter read";
+	//============== Calling Acquire Terminal ===============
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	functionNum = 8;
+
+	// calling module 0 to acquire terminal
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+	//print "rread";
+	// use read statement, for requesting to read from the terminal
+	read;
+
+	//print "proc";
+	//print [SYSTEM_STATUS_TABLE + 1];
+	[(PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16)) + 4] = WAIT_TERMINAL;
+	
+	//saving register values
+	multipush(R1, R2, R3);
+
+	call MOD_5;
+
+	multipop(R1, R2, R3);
+
+	word =  ([PTBR + 2 * (word/512)] * 512) + (word % 512);
+
+	[word] = [(PROCESS_TABLE + (16 * [SYSTEM_STATUS_TABLE + 1]))  + 8];
+
+	//=========================================================
+
+endif;
+
+endif;
+
+return;

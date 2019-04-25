@@ -1,0 +1,85 @@
+//=================== MODULE 4 ====================
+//print "Device";
+alias functionNum R1;
+alias currentPID R2;
+
+//================ TERMINAL WRITE =================
+if(functionNum == 3) then
+
+	//============== Calling Acquire Terminal ===============
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	R1 = 8;
+	R2 = currentPID;
+
+	// calling module 0
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+	print R3;
+	//=========================================================
+
+	//============== Calling Release Terminal =================
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	R1 = 9;
+	R2 = currentPID;
+
+	// calling module 0
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+//================================================
+
+//================ TERMINAL READ =================
+
+else if(functionNum == 4) then
+
+	//print "ter read";
+	//============== Calling Acquire Terminal ===============
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	R1 = 8;
+	R2 = currentPID;
+
+	// calling module 0
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+	//print "rread";
+	// use read statement, for requesting to read from the terminal
+	read;
+
+	//print "proc";
+	//print [SYSTEM_STATUS_TABLE + 1];
+	[(PROCESS_TABLE + (16 * [SYSTEM_STATUS_TABLE + 1])) + 4] = WAIT_TERMINAL;
+	
+	//saving register values
+	multipush(R1, R2, R3);
+
+	call MOD_5;
+
+	multipop(R1, R2, R3);
+
+	//alias physicalAddr R4;
+	alias bufferAddr R3;
+	bufferAddr =  ([PTBR + 2 * (bufferAddr/512)] * 512) + (bufferAddr % 512);
+
+	[bufferAddr] = [(PROCESS_TABLE + (16 * [SYSTEM_STATUS_TABLE + 1]))  + 8];
+
+	//=========================================================
+
+endif;
+
+endif;
+
+return;

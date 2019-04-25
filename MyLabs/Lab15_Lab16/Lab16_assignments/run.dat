@@ -1,0 +1,14 @@
+fdisk
+load --os ../MyLabs/Lab16_assignments/os_startup.xsm
+load --library ../expl/library.lib
+load --idle ../MyLabs/Lab16_assignments/idle.xsm
+load --init ../MyLabs/Lab16_assignments/bubble_sort.xsm
+load --module 0 ../MyLabs/Lab16_assignments/resource_manager_module0.xsm
+load --module 4 ../MyLabs/Lab16_assignments/device_manager_module4.xsm
+load --module 5 ../MyLabs/Lab16_assignments/scheduler_module5.xsm
+load --module 7 ../MyLabs/Lab16_assignments/boot_module.xsm
+load --int=timer ../MyLabs/Lab16_assignments/timer_interrupt.xsm
+load --int=console ../MyLabs/Lab16_assignments/console_interrupt_handler.xsm
+load --int=6 ../MyLabs/Lab16_assignments/read_interrupt_int6.xsm
+load --int=7 ../MyLabs/Lab16_assignments/write_interrupt_int7.xsm
+load --int=10 ../MyLabs/Lab16_assignments/int10_module.xsm

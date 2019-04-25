@@ -1,0 +1,200 @@
+//R8 , R9 , R10 , R11
+//set the MODE FLAG to the system call number and switch the stack
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 8;       //system call number for fork is 9
+    
+    alias userSP R15;
+    userSP = SP;
+    
+    [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)] = SP;
+    SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;
+
+alias pcb_index R8;
+
+//getting the pcb entry invoking the process 
+multipush (R1 , R2 , R8 , R15);
+R1 = 1;
+call MOD_1;                 
+multipop (R1,  R2 , R8 , R15);
+pcb_index = R0;              //this is to get the value
+
+
+//if the pcb_entry returned is -1; no free memory
+if (pcb_index == -1) then
+    //return -1 value as the fork system call
+    alias physicalAddressRetVal R9;
+    physicalAddressRetVal = ([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512);
+    [physicalAddressRetVal] = -1;
+
+    //return from the system call
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] =0;
+    SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)];
+    ireturn;
+endif;
+//getting the free page for the stack and the user area page
+//we need two pages for the stack and one page for the heap
+
+
+//these are for the pages
+//two are for the stack pages and one is for the user page 
+//page1 and page2 are for stack and page3 are for userArea
+    alias page1 R9;
+    alias page2 R10;
+    alias page3 R11;
+
+    multipush (R1 , R2 , R8 , R9 , R10 , R11, R15);
+    R1 = 1;                       //function number for the get free page from the memory manager module
+    call MOD_2;
+    multipop (R1 , R2,  R8 , R9 , R10 , R11 , R15);
+    page1 = R0;                    //this is the first stack page
+
+    multipush (R1 , R2 , R8 , R9 , R10 , R11 , R15);
+    R1 = 1;                       //function number for the get free page from the memory manager module
+    call MOD_2;
+    multipop (R1 , R2,  R8 , R9 , R10 , R11 , R15);
+    page2 = R0;                    //this is the second stack page
+
+    multipush (R1 , R2 , R8 , R9 , R10 , R11 , R15);
+    R1 = 1;                       //function number for the get free page from the memory manager module
+    call MOD_2;
+    multipop (R1 , R2,  R8 , R9 , R10 , R11 , R15);
+    page3 = R0;                    //this is the user area page
+
+[PROCESS_TABLE + 16 * pcb_index + 3] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 3 ]; //USER ID
+[PROCESS_TABLE + 16 * pcb_index + 6] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 6 ]; //swap flag
+[PROCESS_TABLE + 16 * pcb_index + 10] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 10]; //user are swap status
+[PROCESS_TABLE + 16 * pcb_index + 7] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 7]; //inode index
+[PROCESS_TABLE + 16 * pcb_index + 13] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13 ]; //uptr field
+
+[PROCESS_TABLE + 16 * pcb_index + 9] = 0;           //mode flag;
+[PROCESS_TABLE + 16 * pcb_index + 0] = 0;           //tick field
+[PROCESS_TABLE + 16 * pcb_index + 12] = 0;          //KPTR fields
+
+[PROCESS_TABLE + 16 * pcb_index + 2] = [SYSTEM_STATUS_TABLE + 1];        //PPID
+[PROCESS_TABLE + 16 * pcb_index + 4] = CREATED;              //STATE is set to created
+[PROCESS_TABLE + 16 * pcb_index + 11] = page3;               //user are page number
+
+//pid, PTBR and PTLR are initialised by the get_pcb_entry function
+//there is no need to initialise the input buffer
+
+//now copy the per process table for the processes
+alias entry_parent R12;
+alias entry_child R13;
+alias counter R14;
+counter = 0;
+entry_parent = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512  + (512 - 16);
+entry_child = [PROCESS_TABLE + (pcb_index * 16 + 11)] * 512 + (512 - 16);
+while (counter < 16) do
+
+    //counter is even
+    if (counter % 2 == 0 && [entry_parent + 0] == 1) then 
+        [SEMAPHORE_TABLE + [entry_parent + 1] * 4 + 1] = [SEMAPHORE_TABLE + [entry_parent + 1] * 4 + 1] + 1; 
+    endif;
+
+    [entry_child] = [entry_parent];
+    entry_child = entry_child + 1;
+    entry_parent = entry_parent + 1;
+    counter = counter + 1;
+endwhile;
+
+//now copy the disk map table
+counter = 0;
+while (counter < 10) do
+    [DISK_MAP_TABLE + pcb_index * 10 + counter] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + counter];
+    counter = counter + 1;
+endwhile;
+
+
+
+//[DISK_MAP_TABLE + pcb_index * 10 + 1] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + 1];
+//[DISK_MAP_TABLE + pcb_index * 10 + 2] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + 2];
+//[DISK_MAP_TABLE + pcb_index * 10 + 3] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + 3];
+//[DISK_MAP_TABLE + pcb_index * 10 + 4] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + 4];
+//[DISK_MAP_TABLE + pcb_index * 10 + 5] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + 5];
+//[DISK_MAP_TABLE + pcb_index * 10 + 6] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + 6];
+//[DISK_MAP_TABLE + pcb_index * 10 + 7] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + 7];
+//[DISK_MAP_TABLE + pcb_index * 10 + 8] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + 8];
+//[DISK_MAP_TABLE + pcb_index * 10 + 9] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + 9];
+
+//COPY THE LIBRARY OF THE PAGE TABLE
+
+counter = 0;
+while (counter < 16) do
+    [PAGE_TABLE_BASE + pcb_index * 20 + counter] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + counter];
+    counter = counter + 1;
+endwhile;
+
+//[PAGE_TABLE_BASE + pcb_index * 20 + 0] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 0];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 1] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 1];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 2] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 2];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 3] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 3];
+
+//for the heap
+
+//[PAGE_TABLE_BASE + pcb_index * 20 + 4] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 4];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 5] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 5];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 6] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 6];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 7] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 7];
+
+//for the code
+
+//[PAGE_TABLE_BASE + pcb_index * 20 + 8] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 8];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 9] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 9];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 10] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 10];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 11] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 11];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 12] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 12];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 13] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 13];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 14] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 14];
+//[PAGE_TABLE_BASE + pcb_index * 20 + 15] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 15];
+
+//for the stack
+[PAGE_TABLE_BASE + pcb_index * 20 + 16] = page1;
+[PAGE_TABLE_BASE + pcb_index * 20 + 17] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 17];
+[PAGE_TABLE_BASE + pcb_index * 20 + 18] = page2;
+[PAGE_TABLE_BASE + pcb_index * 20 + 19] = [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 19];
+
+//updating the memory free list
+
+counter = 0;
+while (counter < 16) do
+    [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + pcb_index * 20 + counter] ] = [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + pcb_index * 20 + counter] ] + 1;
+    counter = counter + 2;
+endwhile;
+
+
+//[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 2] ] = [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 2] ] + 1;
+//[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 4] ] = [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 4] ] + 1;
+//[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 6] ] = [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 6] ] + 1;
+//[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 8] ] = [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 8] ] + 1;
+//[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 10] ] = [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 10] ] + 1;
+//[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 12] ] = [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 12] ] + 1;
+//[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 14] ] = [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 14] ] + 1;
+//[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 16] ] = page1;
+//[MEMORY_FREE_LIST + [PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 18] ] = page2;
+
+//this is to copy the whole page
+counter = 0;
+while (counter < 512 ) do
+    [page1 * 512 + counter] = [[PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 16] * 512 + counter];
+    [page2 * 512 + counter] = [[PAGE_TABLE_BASE + [SYSTEM_STATUS_TABLE + 1] * 20 + 18] * 512 + counter];
+    counter = counter + 1;
+endwhile;
+
+
+//kernel stack is in user area page
+[page3 * 512 ] = BP;      //storing the value of the BP on top of the kernel stack;
+
+
+userSP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)];
+//return value for the process
+alias physicalAddressRetVal R7;
+physicalAddressRetVal = ([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512);
+[physicalAddressRetVal] = pcb_index; 
+
+//return value for the child process
+physicalAddressRetVal = ([PAGE_TABLE_BASE + pcb_index * 20  + 2 * ((userSP - 1) / 512) ] * 512 ) + (userSP - 1 ) % 512;
+[physicalAddressRetVal] = 0;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;   //setting the mode flag
+
+SP = userSP;
+ireturn;

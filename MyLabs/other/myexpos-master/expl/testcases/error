@@ -1,0 +1,35 @@
+decl
+	integer traverse(integer a);
+enddecl
+integer traverse(integer a)
+{
+	decl
+		integer k,result;
+	enddecl
+
+	begin
+		k = a;
+		result = 1;
+		while(k > 0 && result == 1) do
+			if(k == a+1) then
+				result = -1;
+			else
+				k = k - 1;
+		endwhile;
+		return result;
+	end
+}
+
+integer main()
+{
+	decl
+		integer a,k;
+	enddecl
+
+	begin
+		read(a);
+		k = traverse(a);
+		write(k);
+		return 0;
+	end
+}

@@ -1,0 +1,5 @@
+MOV R0 , "Helloworld"
+MOV R16 , R0
+PORT P1 , R16
+OUT
+HALT

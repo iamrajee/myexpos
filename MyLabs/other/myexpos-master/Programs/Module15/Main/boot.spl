@@ -1,0 +1,144 @@
+// Load Module 0 from disk pages 53 and 54 to memory pages 40 and 41.
+loadi(40, 53);
+loadi(41, 54);
+
+// Load Module 4 from disk pages 61 and 62 to memory pages 48 and 49.
+loadi(48, 61);
+loadi(49, 62);
+
+// Initialize the STATUS field in the Terminal Status table as 0. 
+// This will indicate that the terminal is free before scheduling the first process.
+[TERMINAL_STATUS_TABLE] = 0;
+
+//loading the INIT program
+loadi(65, 7);
+loadi(66, 8);
+
+// loading the exec program
+loadi(84, 69);
+
+//loading INT=10 routine
+loadi(22, 35);
+loadi(23, 36);
+
+//loading INT=7 routine
+loadi(16, 29);
+loadi(17, 30);
+
+//loading exception handler
+loadi(2, 15);
+loadi(3, 16);
+
+//loading the timer interrupt handler
+loadi(4, 17);
+loadi(5, 18);
+
+//loading the library
+loadi(63, 13);
+loadi(64, 14);
+
+//loading the sceduler
+loadi(50,63);
+loadi(51,64);
+
+//Setting the Page Table for the INIT program (here pid = 1)
+PTBR = PAGE_TABLE_BASE + 20;
+PTLR = 10;
+
+//Library
+[PTBR+0] = 63;
+[PTBR+1] = "0100";
+[PTBR+2] = 64;
+[PTBR+3] = "0100";
+
+//Heap
+[PTBR+4] = 78;
+[PTBR+5] = "0110";
+[PTBR+6] = 79;
+[PTBR+7] = "0110";
+
+//Code
+[PTBR+8] = 65;
+[PTBR+9] = "0100";
+[PTBR+10] = 66;
+[PTBR+11] = "0100";
+[PTBR+12] = -1;
+[PTBR+13] = "0000";
+[PTBR+14] = -1;
+[PTBR+15] = "0000";
+
+//Stack
+[PTBR+16] = 76;
+[PTBR+17] = "0110";
+[PTBR+18] = 77;
+[PTBR+19] = "0110";
+
+//Storing the IP in the top of the user stack and setting the SP
+[76 * 512] = [65 * 512 + 1];
+
+//Setting the process table for the init program
+[PROCESS_TABLE + 17] = 1;                       // pid
+[PROCESS_TABLE + 20] = CREATED;                 // State
+[PROCESS_TABLE + 27] = 83;                      // User area
+[PROCESS_TABLE + 28] = 0;                       // Kernel SP
+[PROCESS_TABLE + 29] = 8 * 512;                 // User SP
+[PROCESS_TABLE + 30] = PAGE_TABLE_BASE + 20;    // PTBR
+[PROCESS_TABLE + 31] = 10;                      // PTLR
+
+
+//Setting the Page Table for the executable program (here pid = 2)
+
+//Library
+[PAGE_TABLE_BASE+40] = 63;
+[PAGE_TABLE_BASE+41] = "0100";
+[PAGE_TABLE_BASE+42] = 64;
+[PAGE_TABLE_BASE+43] = "0100";
+
+//Heap
+[PAGE_TABLE_BASE+44] = 85;
+[PAGE_TABLE_BASE+45] = "0110";
+[PAGE_TABLE_BASE+46] = 86;
+[PAGE_TABLE_BASE+47] = "0110";
+
+//Code
+[PAGE_TABLE_BASE+48] = 84;
+[PAGE_TABLE_BASE+49] = "0100";
+[PAGE_TABLE_BASE+50] = -1;
+[PAGE_TABLE_BASE+51] = "0000";
+[PAGE_TABLE_BASE+52] = -1;
+[PAGE_TABLE_BASE+53] = "0000";
+[PAGE_TABLE_BASE+54] = -1;
+[PAGE_TABLE_BASE+55] = "0000";
+
+//Stack
+[PAGE_TABLE_BASE+56] = 86;
+[PAGE_TABLE_BASE+57] = "0110";
+[PAGE_TABLE_BASE+58] = 87;
+[PAGE_TABLE_BASE+59] = "0110";
+
+//Storing the IP in the top of the user stack and setting the SP
+[86 * 512] = [84 * 512 + 1];
+
+
+
+//Setting the process table for the exec program
+[PROCESS_TABLE + 33] = 2;
+[PROCESS_TABLE + 36] = CREATED;
+[PROCESS_TABLE + 43] = 88;
+[PROCESS_TABLE + 44] = 0;
+[PROCESS_TABLE + 45] = 8 * 512;
+[PROCESS_TABLE + 46] = PAGE_TABLE_BASE + 40;
+[PROCESS_TABLE + 47] = 10;
+
+
+
+//setting the process state of all the other processes in the process table to "TERMINATED"
+alias ctr R0;
+ctr = 3;
+while(ctr < MAX_PROC_NUM) do
+    [PROCESS_TABLE + ctr * 16 + 4] = TERMINATED;
+    ctr = ctr + 1;
+endwhile;
+
+
+return;

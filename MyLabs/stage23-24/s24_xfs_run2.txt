@@ -1,0 +1,37 @@
+fdisk
+load --module 0 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s24_mod0.xsm
+load --module 1 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s24_mod1_process.xsm
+load --module 2 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s19_mod2_memory.xsm
+load --module 3 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s24_mod3_file.xsm
+load --module 4 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s23_mod4_device.xsm
+load --module 5 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s20_scheduler.xsm
+load --module 7 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s24_boot.xsm
+load --int=4 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s23_interrupt4.xsm
+load --int=5 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s24_interrupt5.xsm
+load --int=6 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s24_interrupt6.xsm
+load --int=7 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s15_int7.xsm
+load --int=8 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s24_fork_interrupt8.xsm
+load --int=9 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s19_interrupt9_exec.xsm
+load --int=10 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s20_interrupt10_exit.xsm
+load --int=11 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s20_interrup11.xsm
+load --int=13 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s22_interrupt13.xsm
+load --int=14 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s22_interrupt14.xsm
+load --int=15 /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s23_interrupt15.xsm
+load --int=disk /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s18_disk_interrupt.xsm
+load --int=console /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s16_console_interrupt.xsm
+load --int=timer /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s15_timer.xsm
+load --exhandler /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s19_exception.xsm
+load --init /home/arpit/Documents/operating_system/CS3510-Operating-Systems-Lab-master/myexpos/expl/shell2.xsm
+load --idle /home/arpit/Documents/operating_system/CS3510-Operating-Systems-Lab-master/myexpos/expl/idle.xsm
+load --os /home/arpit/study/Operating_system/myexpos_rename/spl/spl_progs/s16_os.xsm
+load --library /home/arpit/study/Operating_system/myexpos_rename/expl/library.lib
+load --exec /home/arpit/study/Operating_system/myexpos_rename/expl/expl_progs/s20_odd.xsm
+load --exec /home/arpit/study/Operating_system/myexpos_rename/expl/expl_progs/s20_even.xsm
+load --exec /home/arpit/study/Operating_system/myexpos_rename/expl/expl_progs/s21_pid.xsm
+load --exec /home/arpit/study/Operating_system/myexpos_rename/expl/expl_progs/s21_fork.xsm
+load --exec /home/arpit/study/Operating_system/myexpos_rename/expl/expl_progs/s24_ass1.xsm
+load --exec /home/arpit/study/Operating_system/myexpos_rename/expl/expl_progs/s24_ass2.xsm
+load --data /home/arpit/study/Operating_system/myexpos_rename/xfs-interface/s24_d.dat
+load --data /home/arpit/study/Operating_system/myexpos_rename/xfs-interface/s24_d2.dat
+load --exec /home/arpit/study/Operating_system/myexpos_rename/expl/expl_progs/s23_as1.xsm
+load --exec /home/arpit/study/Operating_system/myexpos_rename/expl/expl_progs/s23_as2.xsm

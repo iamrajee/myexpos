@@ -1,0 +1,12 @@
+./expl ../Programs/Module22/A3/odd.expl
+mv assemblycode.xsm ../Programs/Module22/A3/odd.xsm
+./expl ../Programs/Module22/A3/even.expl
+mv assemblycode.xsm ../Programs/Module22/A3/even.xsm
+./expl ../Programs/Module22/A3/idle.expl
+mv assemblycode.xsm ../Programs/Module22/A3/idle.xsm
+./expl ../Programs/Module22/A3/init.expl
+mv assemblycode.xsm ../Programs/Module22/A3/init.xsm
+./expl ../Programs/Module22/A3/merge1.expl
+mv assemblycode.xsm ../Programs/Module22/A3/merge1.xsm
+./expl ../Programs/Module22/A3/merge2.expl
+mv assemblycode.xsm ../Programs/Module22/A3/merge2.xsm

@@ -1,0 +1,136 @@
+alias systemNum R14;
+alias userSP R15;
+alias counter R13;      
+alias pentryAd R12;             //process entry
+alias retAddr R11;              //this is the return address
+
+//userSP-5 is the position that stores the system call number
+    userSP = SP;
+    systemNum = [([PTBR + 2 * ((userSP - 5) / 512) ] * 512 )  + ((userSP - 5) % 512)];
+
+
+    pentryAd = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+    retAddr = ([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512);
+
+//this is to switch to the kernel stack
+    [pentryAd + 13] = SP;   
+    SP = [pentryAd + 11] * 512 - 1;
+
+
+
+//this is the open system call
+if (systemNum == 2) then
+    [pentryAd + 9] = 2;       //set the mode flag to 2
+
+    alias perProcess R10;
+    alias freePerProcess R9;
+    alias fileName R8;
+
+    fileName = [([PTBR + 2 * ((userSP - 4) / 512) ] * 512 )  + ((userSP - 4) % 512)];
+
+    perProcess = [pentryAd + 11] * 512 + RESOURCE_TABLE_OFFSET;
+    counter = 0;
+    freePerProcess = -1;
+
+
+
+    //find the free slot for the free per process entry
+    while (counter < 8 ) do
+        if ([perProcess + 2*counter] == -1) then
+            freePerProcess = counter;
+            break;
+        endif;
+        counter = counter + 1;
+    endwhile;
+
+    if (counter >= 8) then
+        //returning the value of -1 if no free entry is found
+        [retAddr] = -3;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    //call the open () function from the file manager module to get the open File table entry
+    //file manager module is module 3
+
+    multipush (R15 , R14 , R13 , R12 , R11 , R10 , R9 , R8 );
+    R1 = 3;             //function number
+    R2 = fileName;      //for the file name
+    call MOD_3;
+    multipop (R15 , R14 , R13 , R12 , R11 , R10 , R9 , R8 );
+
+    //return value is stored in R0
+    
+    //if the open fails then return the error code
+    if (R0 == -1 || R0 == -2) then
+        [retAddr] = R0;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    //this is to set the per-process resource table
+    //note that freePerProcess is just the index
+    [perProcess + 2*freePerProcess + 0] = FILE;                //resource identifier
+    [perProcess + 2*freePerProcess + 1] = R0;                  //this is the index return by the open call from the file manager module
+
+    //return the index of the per process table
+    [retAddr] = freePerProcess;
+
+endif;
+
+
+//this is for the close system call
+if (systemNum == 3) then
+    [pentryAd + 9] = 3;       //set the mode flag to 3
+    
+    //extracting the file Descriptor
+    //note that the file Descriptor is the same as the index of the open file status in the processor table
+    alias fileDescriptor R10;
+    fileDescriptor = [([PTBR + 2 * ((userSP - 4) / 512) ] * 512 )  + ((userSP - 4) % 512)];
+    
+    //per process entry
+    alias perProcess R9;
+    perProcess = [pentryAd + 11] * 512 + RESOURCE_TABLE_OFFSET;
+    
+    //return -1 for invalid fileDescriptor
+    if (fileDescriptor < 0 || fileDescriptor > 7) then
+        [retAddr] = -1;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    //if the per process entry is not equal to FILE
+    if ([perProcess + 2 * fileDescriptor + 0] != FILE) then
+        [retAddr] = -1;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;    
+    endif;
+
+    //get the index of the open file table
+    alias indexOpenFile R8;
+    indexOpenFile = [perProcess + 2 * fileDescriptor + 1];
+
+    //call the close function number from the file manager module
+    multipush (R15 , R14 , R13 , R12 , R11 , R10 , R9 , R8 );
+    R1 = 4;             //function number for close function
+    R2 = indexOpenFile;      //for the index open table
+    call MOD_3;
+    multipop (R15 , R14 , R13 , R12 , R11 , R10 , R9 , R8 );
+
+    //invalidate the per process table entry
+    [perProcess + 2 * fileDescriptor + 0] = -1;
+
+    //return 0
+    [retAddr] = 0;
+
+
+endif;
+
+//this is after using all the system call
+[pentryAd + 9] = 0;   //setting the mode flag
+SP = userSP;
+ireturn;

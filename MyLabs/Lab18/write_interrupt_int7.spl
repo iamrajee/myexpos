@@ -1,0 +1,52 @@
+//=============WRITE INTERRUPT=================
+//print "write";
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 5;
+
+alias userSP R0;
+userSP = SP;
+
+//Save SP in UPTR(entry number 13 in process table)
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13] = SP;
+
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 11]*512 + [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 12];
+
+alias physicalPageNum R4;
+alias offset R5;
+alias fileDescPhysicalAddr R6;
+
+physicalPageNum = [PTBR + 2 * ((userSP - 4)/512)];
+offset = (userSP - 4) % 512;
+
+fileDescPhysicalAddr = (physicalPageNum*512) + offset;
+alias fileDescriptor R7;
+fileDescriptor = [fileDescPhysicalAddr];
+
+if (fileDescriptor != -2)
+then
+	 alias physicalAddrRetVal R5;
+	 physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+	 [physicalAddrRetVal] = -1;
+else 
+
+	//==================== WRITING TO TERMINAL ==================
+    alias word R3;
+    word = [[PTBR + 2* ((userSP - 3)/512)]*512 + ((userSP - 3)%512)];
+    multipush(R0, R4, R5, R6, R7);
+    alias functionNum R1;
+    alias PID R2;
+
+    functionNum = 3;
+    PID = [SYSTEM_STATUS_TABLE + 1];
+    //print PID;
+    call MOD_4;
+
+    alias physicalAddrRetVal R8;
+    multipop(R0, R4, R5, R6, R7);
+   physicalAddrRetVal = ([PTBR + 2 * (userSP - 1)/512]*512) +((userSP - 1)%512);
+   [physicalAddrRetVal] = 0;
+endif;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+
+ireturn;

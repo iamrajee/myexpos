@@ -1,0 +1,59 @@
+//system call number for the shut down system call is 15
+//this is to switch to the kernel stack
+
+alias userSP R15;
+userSP = SP;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;
+
+//setting the mode flag to 1
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 21;
+
+//the shell process is the one who can invoke the shut down system call
+if ([SYSTEM_STATUS_TABLE + 1] != 1 || [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 3] != 1) then
+    [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = -1;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1 ] * 16 + 9] = 0;
+    SP = userSP;
+    ireturn;
+endif;
+
+//this is for the inode table
+multipush (R15);
+R1 = 1;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 59;
+R4 = 3;
+call MOD_4;
+multipop (R15);
+
+//this is for the inode table
+multipush (R15);
+R1 = 1;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 60;
+R4 = 4;
+call MOD_4;
+multipop (R15);
+
+//this is for the root table
+//this is for the inode table
+multipush (R15);
+R1 = 1;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 62;
+R4 = 5;
+call MOD_4;
+multipop (R15);
+
+//this is for the inode table
+multipush (R15);
+R1 = 1;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+R3 = 61;
+R4 = 2;
+call MOD_4;
+multipop (R15);
+
+halt;
+

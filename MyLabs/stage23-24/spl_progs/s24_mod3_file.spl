@@ -1,0 +1,223 @@
+alias functionNum R1;
+
+//for the open file function call
+if (functionNum == 3) then
+    alias fileName R2;         //for the file name
+    alias counter R3;
+    alias inode_index R4;
+
+
+    //finding the index in the inode table
+    counter = 0;
+    while (counter < MAX_FILE_NUM) do
+        if ([INODE_TABLE + 16 * counter + 1] == fileName && [INODE_TABLE + 16 * counter] != EXEC) then
+            inode_index = counter;
+            break;
+        endif;
+    counter = counter + 1;
+    endwhile;
+    
+    //if  the entry is not found
+    if (counter >= 60) then
+        R0 = -1;          //return -1
+        return;
+    endif;
+
+    //this is the inode entry of the given file index
+    alias inode_entry R5;
+    inode_entry = INODE_TABLE + 16 * inode_index;
+
+    //acquire the inode
+    multipush (R1 , R2 , R3 , R4 , R5);
+    R1 = 4;                  //function number
+    R2 = inode_index;
+    R3 = [SYSTEM_STATUS_TABLE + 1];
+    call MOD_0;             //this is for the resource manager module
+    multipop (R1, R2 , R3 , R4 , R5);
+
+
+    //if the acquire index fail 
+    if (R0 == -1) then
+        R0 = -1;
+        return;
+    endif;
+
+    //if the file is of type exec then release the node and return -1
+    
+    
+    if ([inode_entry + 1] != fileName || [inode_entry + 0] == EXEC) then
+        //release the node and then return -1;
+        multipush (R1 , R2 , R3 , R4 , R5);        
+        R1 = 5;
+        R2 = inode_index;
+        R3 = [SYSTEM_STATUS_TABLE + 1];
+        call MOD_0;
+        multipop (R1 , R2 , R3, R4 ,R5);
+
+        
+        R0 = -1;
+        return;
+
+    endif;
+
+    alias openFileIndex R6;
+    openFileIndex = -1;
+
+    //find a free entry in the open file table
+    counter =0;
+    while (counter < MAX_OPENFILE_NUM) do
+    
+        if ([OPEN_FILE_TABLE + 4 * counter + 0] == -1 ) then
+            openFileIndex = counter;
+            break;
+        endif;
+    counter = counter + 1;
+    endwhile;
+
+    
+    //release the inode and then return -2 if no open file index;
+    if (counter >= MAX_OPENFILE_NUM ) then
+        multipush (R1 , R2 , R3 , R4 , R5 , R6);        
+        R1 = 5;
+        R2 = inode_index;
+        R3 = [SYSTEM_STATUS_TABLE + 1];
+        call MOD_0;
+        multipop (R1 , R2 , R3, R4 ,R5 , R6);
+
+        R0 = -2;
+        return;
+    endif;
+
+    if (fileName == "root") then
+        [OPEN_FILE_TABLE + 4 * openFileIndex + 0 ] = INODE_ROOT; //inode index field of the open file table
+    else
+        //file status table
+        //index must match with the inode_entry
+
+        //if the file open count is -1 then set it to 1 otherwise increment it
+        if ([FILE_STATUS_TABLE + inode_index * 4 + 1 ] == -1) then
+            [FILE_STATUS_TABLE + inode_index * 4 + 1 ] = 1;
+        else
+            [FILE_STATUS_TABLE + inode_index * 4 + 1 ] = [FILE_STATUS_TABLE + inode_index * 4 + 1 ] + 1;
+        endif;
+    
+        [OPEN_FILE_TABLE + 4 * openFileIndex + 0] = inode_index;
+    endif;
+
+    [OPEN_FILE_TABLE + 4 * openFileIndex + 1] = 1;               //open instance count
+    [OPEN_FILE_TABLE + 4 * openFileIndex + 2] = 0;               //L seek value
+
+    //release the node
+        multipush (R1 , R2 , R3 , R4 , R5 , R6);        
+        R1 = 5;
+        R2 = inode_index;
+        R3 = [SYSTEM_STATUS_TABLE + 1];
+        call MOD_0;
+        multipop (R1 , R2 , R3, R4 ,R5 , R6);
+
+    R0 = openFileIndex;
+    return;
+
+
+endif;
+
+//this is for the function module
+if (functionNum == 4) then
+    alias fileTableIndex R2;
+    alias inode_index R3;
+    alias openTableEntry R4;
+
+    openTableEntry = OPEN_FILE_TABLE + 4 * fileTableIndex;
+    inode_index = [openTableEntry + 0];  //get the inode entry
+
+    //decrement the open instance count
+    [openTableEntry + 1] = [openTableEntry + 1] - 1;
+
+    //if the open instance count is 0
+    //if the number of processes sharing the open file descriptor becomes zeros then invalidate 
+    //the open table entry and then decrement the file open count 
+    //if that becomes 0 then set its value to -1
+    if ([openTableEntry + 1] == 0) then
+        [openTableEntry + 0] = -1;
+        [openTableEntry + 1] = -1;
+        [openTableEntry + 2] = -1;
+
+        if (inode_index != INODE_ROOT) then
+            [FILE_STATUS_TABLE + 4 * inode_index + 1] = [FILE_STATUS_TABLE + 4 * inode_index + 1] - 1;
+        endif;
+
+        if ([FILE_STATUS_TABLE + 4 * inode_index + 1] == 0) then
+            [FILE_STATUS_TABLE + 4 * inode_index + 1] = -1;
+        endif;
+    endif;
+
+    return;
+endif;
+
+//this is for the buffer read
+if (functionNum == 2) then
+    alias disk_block_number R2;
+    alias offset R3;
+    alias memory_address R4;
+
+    alias buffer_number R5;
+    buffer_number = disk_block_number % 4;
+
+    //acquire the buffer
+    multipush (R1 , R2 , R3 ,R4 ,R5);
+    R1 = 1;
+    R2 = buffer_number;
+    R3 = [SYSTEM_STATUS_TABLE + 1];
+    call MOD_0;
+    multipop (R1 , R2 , R3 , R4 ,R5);
+
+    alias counter R6;
+    
+
+    //if the buffer contains the different block number
+    if ([BUFFER_TABLE + buffer_number * 4 + 0] != disk_block_number) then
+
+        if ([BUFFER_TABLE + buffer_number * 4 + 1] == 1) then
+        //write back the contents
+            multipush (R1 , R2 , R3 ,R4 ,R5);
+            R1 = 1;
+            R2 = [SYSTEM_STATUS_TABLE + 1];
+            R3 = buffer_number + 71;
+            R4 = [BUFFER_TABLE + buffer_number * 4 + 0];
+            call MOD_4;
+            multipop (R1 , R2 , R3 , R4 ,R5);
+        
+        //mark the buffer as clean
+            [BUFFER_TABLE + buffer_number * 4 + 1] = 0;
+        endif;        
+        //load the disk block
+            multipush (R1 , R2 , R3 ,R4 ,R5);
+            R4 = disk_block_number;
+            R1 = 2;
+            R2 = [SYSTEM_STATUS_TABLE + 1];
+            R3 = buffer_number + 71;
+            
+            call MOD_4;
+            multipop (R1 , R2 , R3 , R4 ,R5);
+        
+
+            [BUFFER_TABLE + buffer_number * 4 + 0] =  disk_block_number;
+
+    endif;
+    
+    //copy the contents
+    
+    [([PTBR + 2*(memory_address/512)])*512 + (memory_address%512)] = [(71 + buffer_number) * 512 + offset];
+
+    //release the buffer;
+    multipush (R1 , R2 , R3 ,R4 ,R5);
+    R1 = 2;
+    R2 = buffer_number;
+    R3 = [SYSTEM_STATUS_TABLE + 1];
+    call MOD_0;
+    multipop (R1 , R2 , R3 , R4 ,R5);
+
+    return;
+endif;
+
+return;

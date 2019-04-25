@@ -1,0 +1,5 @@
+#!/bin/bash
+./xfs-interface load --init ../Programs/Module6/squares.xsm
+./xfs-interface load --int=10 ../Programs/Module6/haltprog.xsm
+./xfs-interface load --exhandler ../Programs/Module6/haltprog.xsm
+./xfs-interface load --os ../Programs/Module6/os_startup.xsm

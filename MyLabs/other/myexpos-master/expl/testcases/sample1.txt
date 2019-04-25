@@ -1,0 +1,18 @@
+decl
+	integer a,b[10];
+	boolean c,d,e;
+enddecl
+integer main()
+{
+begin
+	c=false;
+	d=false;
+	e=true;
+	if(c AND d OR e) then
+		write(1);
+	else
+		write(2);
+	endif;
+	return 0;
+end
+}

@@ -1,0 +1,21 @@
+decl
+    int temp, perm;
+    string filename;
+enddecl
+
+int main() {
+begin
+
+    write("Enter file");
+    read(filename);
+    write("Permission : ");
+    read(perm);
+    temp = exposcall("Create", filename, perm);
+    if(temp == 0) then
+        write("Created");
+    else 
+        write("Error");
+    endif;
+    return 0;
+end
+}

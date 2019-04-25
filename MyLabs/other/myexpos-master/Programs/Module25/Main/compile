@@ -1,0 +1,27 @@
+#!/bin/bash
+./spl ../Programs/Module25/Main/haltprog.spl
+./spl ../Programs/Module25/Main/os_startup.spl
+./spl ../Programs/Module25/Main/timer.spl
+./spl ../Programs/Module25/Main/int7.spl
+./spl ../Programs/Module25/Main/boot.spl
+./spl ../Programs/Module25/Main/int10.spl
+./spl ../Programs/Module25/Main/scheduler.spl
+./spl ../Programs/Module25/Main/module_0.spl
+./spl ../Programs/Module25/Main/module_4.spl
+./spl ../Programs/Module25/Main/console.spl
+./spl ../Programs/Module25/Main/int6.spl
+./spl ../Programs/Module25/Main/int9.spl
+./spl ../Programs/Module25/Main/module_1.spl
+./spl ../Programs/Module25/Main/module_2.spl
+./spl ../Programs/Module25/Main/diskint.spl
+./spl ../Programs/Module25/Main/int8.spl
+./spl ../Programs/Module25/Main/int11.spl
+./spl ../Programs/Module25/Main/int15.spl
+./spl ../Programs/Module25/Main/int13.spl
+./spl ../Programs/Module25/Main/int14.spl
+./spl ../Programs/Module25/Main/exe_handler.spl
+./spl ../Programs/Module25/Main/int4.spl
+./spl ../Programs/Module25/Main/int5.spl
+./spl ../Programs/Module25/Main/module_3.spl
+
+

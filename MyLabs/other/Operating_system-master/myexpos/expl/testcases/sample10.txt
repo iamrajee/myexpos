@@ -1,0 +1,23 @@
+decl
+	integer fact(integer n);
+	integer a,res;
+enddecl
+
+integer fact(integer n)
+{
+	begin
+		write(n);
+		write(n+1);
+		return 0;
+	end
+}
+
+integer main()
+{
+	begin
+		read(a);
+		a=fact(a);
+		
+		return 0;
+	end	
+}	

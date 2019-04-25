@@ -1,0 +1,121 @@
+type
+	typedef List
+	{
+		integer a;
+		List next;
+	}
+endtype
+
+
+decl
+	integer in,opt;
+	List Head;
+	integer insert(List &H;integer a);
+	integer print();
+	integer deleteHead(List &H);
+	integer Reverse(List &H);			  
+enddecl
+
+integer insert(List &H;integer a){
+	decl
+		List new;
+	enddecl
+	begin
+		new = alloc();
+		new.a = a;
+		if(H == null) then
+			H=new;
+			new.next = null;
+		else
+			new.next = H;
+			H = new;
+		endif;
+		return 0;
+	end
+}
+
+integer print(){
+	decl
+		List t;
+	enddecl
+	begin
+		t=Head;
+		
+		while(t != null) do
+			write(t.a);
+			t=t.next;
+		endwhile;
+		return 0;
+	end
+}
+		
+integer deleteHead(List &H)
+{
+	decl
+		List a;
+	enddecl
+	begin
+		if(H !=  null) then
+			a=H.next;
+			free(H);
+			H=a;
+		endif;
+		return 0;
+	end
+}
+
+integer Reverse(List &H)
+{
+	decl
+		List temp,temp2;
+	enddecl
+	begin
+		if(H !=  null && H.next != null) then
+		    temp=H.next;
+            
+		    in=Reverse(temp);
+		    H.next.next=H;
+		    H.next=null;
+			H=temp;
+		endif;
+		return 1;
+	end
+}
+
+integer main(){	
+	decl
+		integer val,flag;
+		List t;
+	enddecl
+	begin
+		
+		Head = null;
+		flag=1;
+		while(flag==1) do
+			read(opt);
+			if(opt==1) then
+				read(val);
+				in=insert(Head,val);
+			else
+				if(opt==2) then
+					write(123456789);
+					in=print();
+					write(123456789);
+				else
+					if(opt==3) then
+						write(1234);
+						in=Reverse(Head);
+						write(1234);
+					else
+					  if(opt==4) then
+					     in=deleteHead(Head);
+					  else
+						flag=0;
+					  endif;
+					endif;
+				endif;
+			endif;
+		endwhile;
+		return 9;
+	end
+}

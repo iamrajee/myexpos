@@ -1,0 +1,19 @@
+#!/bin/bash
+./spl ../Programs/Module21/Main/haltprog.spl
+./spl ../Programs/Module21/Main/os_startup.spl
+./spl ../Programs/Module21/Main/timer.spl
+./spl ../Programs/Module21/Main/int7.spl
+./spl ../Programs/Module21/Main/boot.spl
+./spl ../Programs/Module21/Main/int10.spl
+./spl ../Programs/Module21/Main/scheduler.spl
+./spl ../Programs/Module21/Main/module_0.spl
+./spl ../Programs/Module21/Main/module_4.spl
+./spl ../Programs/Module21/Main/console.spl
+./spl ../Programs/Module21/Main/int6.spl
+./spl ../Programs/Module21/Main/int9.spl
+./spl ../Programs/Module21/Main/module_1.spl
+./spl ../Programs/Module21/Main/module_2.spl
+./spl ../Programs/Module21/Main/diskint.spl
+./spl ../Programs/Module21/Main/int8.spl
+./spl ../Programs/Module21/Main/int11.spl
+./spl ../Programs/Module21/Main/int15.spl

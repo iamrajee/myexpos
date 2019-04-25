@@ -1,0 +1,74 @@
+//=================== MODULE 0 ====================
+//print "resource";
+alias functionNum R1;
+alias currentPID R2;
+
+//=============== Acquire Disk ====================
+if(functionNum == 3) then
+
+	while([DISK_STATUS_TABLE] == 1) do
+		[(PROCESS_TABLE + (16 * currentPID)) + 4] = WAIT_DISK;
+		multipush(R1, R2);
+		call MOD_5;
+		multipop(R1, R2);
+	endwhile;
+
+	[DISK_STATUS_TABLE] = 1;
+	[DISK_STATUS_TABLE + 4] = currentPID;
+
+//=============== Acquire Terminal ===================
+else if(functionNum == 8) then
+
+	//print "term status";
+	//print [TERMINAL_STATUS_TABLE];
+
+	while([TERMINAL_STATUS_TABLE] == 1) do
+
+		[(PROCESS_TABLE + (16 * currentPID)) + 4] = WAIT_TERMINAL;
+
+		multipush(R1, R2);
+
+		call MOD_5;
+
+		multipop(R1, R2);
+
+	endwhile;
+	[TERMINAL_STATUS_TABLE] = 1;
+	[TERMINAL_STATUS_TABLE + 1] = currentPID;
+//====================================================
+
+//=============== Release Terminal ===================
+else if(functionNum == 9) then
+
+	alias retVal R0;
+	//print "release";
+	// checking if calling process is the process which acquired the terminal
+	if(currentPID != [TERMINAL_STATUS_TABLE + 1]) then
+		//print "release1";
+		retVal = -1;
+		return;
+	endif;
+
+	[TERMINAL_STATUS_TABLE] = 0;
+
+	alias i R1;
+	i = 1;
+	//print "release2";
+
+	while (i < MAX_PROC_NUM) do
+		if([PROCESS_TABLE + (i*16) + 4] == WAIT_TERMINAL) then
+			//print "ready";
+			//print i;
+			[PROCESS_TABLE + (i*16) + 4] = READY;
+		endif;
+		i = i+1;
+	endwhile;
+
+	retVal = 0;
+
+//====================================================
+endif;
+endif;
+endif;
+
+return;

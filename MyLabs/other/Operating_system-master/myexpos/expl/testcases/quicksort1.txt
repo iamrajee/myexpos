@@ -1,0 +1,65 @@
+decl
+	integer a[11],temp,quicksort(integer low,high),partition(integer low,high);
+enddecl
+integer quicksort(integer low,high){
+	decl	
+		integer pivot,temp1;
+	enddecl
+	begin	
+		if(high>low) then
+			pivot = partition(low,high);
+			temp1 = quicksort(low,pivot-1);
+			temp1 = quicksort(pivot+1,high);
+		endif;
+		return 11;
+	end
+}
+
+integer partition(integer low,high){
+	decl
+		integer left,right,pivotItem,temp;
+	enddecl
+	begin	
+		pivotItem = a[low];
+		left = low;
+		right = high;
+		while(left < right) do
+			while(a[left] <= pivotItem) do
+				left = left + 1;
+			endwhile;
+			while(a[right] >  pivotItem) do
+				right = right - 1;
+			endwhile;
+			if(left<right) then
+				temp = a[left];
+				a[left] = a[right];
+				a[right] = temp;
+			endif;
+		endwhile;
+		a[low] = a[right];
+		a[right] = pivotItem;
+		return right;	
+	end
+}
+integer main(){
+	decl
+		integer i,temp1,op;
+	enddecl
+	begin
+		i = 1;
+		read(op);
+		while(i<=op) do
+			read(a[i]);
+			i = i + 1;
+		endwhile;
+		temp1 = quicksort(0,op);
+		i = 1;
+		while(i<=op) do
+			write(a[i]);
+			i = i + 1;
+		endwhile;
+		
+		return 1;
+	end
+}
+

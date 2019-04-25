@@ -1,0 +1,165 @@
+alias functionNum R1;
+alias currentPID R2;
+
+//this is to get the pcb_entry
+if (functionNum == 1) then
+    alias current_process R3;
+    alias pcb_entry R4;
+    pcb_entry = -1;
+    current_process = 0;
+    while (current_process < 16) do
+        if ([PROCESS_TABLE + 16 * current_process + 4] == TERMINATED) then 
+            pcb_entry = current_process;
+            break;
+        endif;
+        current_process = current_process + 1;
+    endwhile;
+
+    [PROCESS_TABLE + 16 * pcb_entry + 1] = pcb_entry;      //pid of the process
+    [PROCESS_TABLE + 16 * pcb_entry + 4] = 12;	     //state of the process ; ALLOCATED
+    [PROCESS_TABLE + 16 * pcb_entry + 14] = PAGE_TABLE_BASE + 20 * pcb_entry;    //PTBR
+    [PROCESS_TABLE + 16 * pcb_entry + 15] = 10;                     //PTLR
+    
+    //returning the index to the pointer 
+    R0 = pcb_entry;
+    return;
+
+endif;
+
+
+//free user area page
+if (functionNum == 2) then
+    R3 = [PROCESS_TABLE + currentPID * 16 + 11];
+    
+    //for the memory manager module
+    multipush (R0 , R1 , R2 , R3);
+    R1 = 2;                   //for releasing the page
+    R2 = R3;                  //this is the page number
+    call MOD_2;
+    multipop (R0 , R1 , R2 , R3);
+
+    return;
+endif;
+
+//this is for the exit process 
+if (functionNum == 3) then
+
+
+    alias current_process R5;
+    current_process = 1;
+
+
+    //if we are not in the exec system call 
+
+    if ( [PROCESS_TABLE + currentPID * 16 + 9] != 9) then 
+        while (current_process < 16) do
+            if ( [PROCESS_TABLE + current_process * 16 + 4] == WAIT_PROCESS && [PROCESS_TABLE + current_process * 16 + 5] == currentPID ) then 
+                [PROCESS_TABLE + current_process * 16 + 4] = READY;
+            endif;
+
+            if ([PROCESS_TABLE + 16 * current_process + 2] == currentPID ) then 
+                [PROCESS_TABLE + 16 * current_process + 2] = -1;
+            endif;
+            current_process = current_process + 1;
+        endwhile;
+    endif;
+
+
+    R4 = currentPID;                //this is to store the currentPID
+    multipush (R0 , R1 , R2 , R3 , R5);
+    R1 = 4;                   //free page table
+    R2 = R4;                  //currentPID of the process
+    call MOD_1;
+    multipop (R0 , R1 , R2 , R3 , R5);
+
+    multipush (R0 , R1 , R2 , R3 , R5);
+    R1 = 2;                   //free user area page
+    R2 = R4;
+    call MOD_1;
+    multipop (R0 , R1 , R2 , R3 , R5);
+
+    [PROCESS_TABLE + R4 * 16 + 4] = TERMINATED;
+    return;
+endif;
+
+//this is for the page table
+if (functionNum == 4) then
+    alias page_table_base R6;
+    page_table_base = [PROCESS_TABLE + currentPID * 16 + 14];
+
+    //this is for the page table base
+    [page_table_base + 0] = -1;
+    [page_table_base + 1] = "0000";
+    [page_table_base + 2] = -1;
+    [page_table_base + 3] = "0000";
+
+    R5 = 2;                  //this is the page number
+    while (R5 < 10) do
+        //print ("mod 1");
+        if ([page_table_base + 2 * R5] != -1) then
+            multipush (R0 , R1 , R2 , R3 , R4 , R5 , R6);
+            R1 = 2;                   //release page
+            R2 = [page_table_base + 2 * R5];                  //page number
+            call MOD_2;
+            multipop (R0 , R1 , R2 , R3 , R4,R5 , R6);
+            [page_table_base + 2 * R5 + 1] = "0000";         //invalidate the entry
+            [page_table_base + 2 * R5] = -1;
+        endif;
+
+    R5 = R5 + 1;
+    endwhile;
+
+    alias disk_table R7;
+    disk_table = [DISK_MAP_TABLE ] + (currentPID * 10);
+
+
+    //release the 
+
+    if ([disk_table + 2] != -1) then
+    multipush (R0 , R1 , R2 , R3 , R4 , R5, R6 , R7 , R8);
+    R1 = 4;                 //release block
+    R3 = currentPID;
+    R2 = [disk_table + 2];
+    call MOD_2;
+    multipop (R0 , R1 , R2 , R3 , R4 , R5, R6 , R7 , R8);
+    endif;
+
+
+    if ([disk_table + 3] != -1) then
+    multipush (R0 , R1 , R2 , R3 , R4 , R5, R6 , R7 , R8);
+    R1 = 4;                 //release block
+    R3 = currentPID;
+    R2 = [disk_table + 3];
+    call MOD_2;
+    multipop (R0 , R1 , R2 , R3 , R4 , R5, R6 , R7 , R8);
+    endif;
+
+    if ([disk_table + 8] != -1) then
+    multipush (R0 , R1 , R2 , R3 , R4 , R5, R6 , R7 , R8);
+    R1 = 4;                 //release block
+    R3 = currentPID;
+    R2 = [disk_table + 8];
+    call MOD_2;
+    multipop (R0 , R1 , R2 , R3 , R4 , R5, R6 , R7 , R8);
+    endif;
+
+    if ([disk_table + 9] != -1) then
+    multipush (R0 , R1 , R2 , R3 , R4 , R5, R6 , R7 , R8);
+    R1 = 4;                 //release block
+    R3 = currentPID;
+    R2 = [disk_table + 9];
+    call MOD_2;
+    multipop (R0 , R1 , R2 , R3 , R4 , R5, R6 , R7 , R8);
+    endif;
+
+    alias counter R8;
+    counter = 0;
+    while (counter < 10) do
+        [disk_table + counter] = -1;
+        counter = counter + 1;
+    endwhile;
+
+    return;
+else 
+ return;
+endif;

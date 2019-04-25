@@ -1,0 +1,109 @@
+//================Exception (INT 10) module=====================
+//print "=exception=";
+//print "EC";
+//print EC;
+// set the MODE_FLAG in the process table entry to -1
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = -1;
+
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+
+alias userSP R5;
+userSP = SP;
+
+// Setting SP to (UArea Page number * 512 - 1) of the process
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+backup;
+
+multipush(EIP);
+
+if((EC != 0) || (userSP == (PTLR * 512 - 1))) then
+    // Write Terminal
+    multipush(R5);
+    R1 = 3;
+    R2 = [SYSTEM_STATUS_TABLE + 1];
+    if(EC == 1) then
+        R3 = "Instruction illegal";
+    endif;
+    if(EC == 2) then
+        R3 = "Memory illegal";
+    endif;
+    if(EC == 3) then
+        R3 = "Arithmetic exception";
+    endif;
+    //print "R3";
+    //print R3;
+    call MOD_4;
+    multipop(R5);
+
+    // exit process
+    multipush(R5);
+    R1 = 3;
+    R2 = [SYSTEM_STATUS_TABLE + 1];
+    call MOD_1;
+    multipop(R5);
+
+    // scheduler
+    multipush(R5);
+    call MOD_5;
+    multipop(R5);
+    ireturn;
+endif;
+
+// EC = 0, page fault has occurred
+
+// if page fault occurred due to a code page
+if((EPN >= 4) && (EPN <= 7)) then
+    //print "code fault";
+    alias block_number R6;
+    alias page_num R7;
+    block_number = [DISK_MAP_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 10) + EPN];
+    // call get Code Page
+    multipush(R5, R6, R7);
+    R1 = 5;
+    R2 = block_number;
+    call MOD_2;
+    multipop(R5, R6, R7);
+    page_num = R0;
+
+    [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 2*EPN] = page_num;
+    [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + (2*EPN+1)] = "1100";
+
+endif;
+
+// if page fault is caused due to a heap page,
+if(EPN == 2 || EPN == 3) then
+    //print "heap fault";
+    //print "EPN";
+    //print EPN;
+    alias page_num R7;
+    multipush(R5, R6, R7);
+    R1 = 1;
+    call MOD_2;
+    multipop(R5, R6, R7);
+    page_num = R0;
+    //print "page_num";
+    //print page_num;
+
+    //print (2*EPN);
+    //print (2*EPN + 1);
+    //print [[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 14] + 2*EPN];
+    //print [[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 14] + (2*EPN+1)];
+
+    [[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 14] + 2*EPN] = page_num;
+    [[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 14] + (2*EPN+1)] = "1110";
+endif;
+
+multipop(EIP);
+
+restore;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+SP = SP + 1;
+//print SP;
+//print [([PTBR + 2*(SP/512)]*512) + (SP % 512)];
+[([PTBR + 2*(SP/512)]*512) + (SP % 512)] = EIP;
+//print "ireturn";
+ireturn;

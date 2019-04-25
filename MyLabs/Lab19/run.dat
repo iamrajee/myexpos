@@ -1,0 +1,21 @@
+fdisk
+load --os ../MyLabs/Lab19/os_startup.xsm
+load --library ../expl/library.lib
+load --idle ../MyLabs/Lab19/idle.xsm
+load --init ../MyLabs/Lab19/exec.xsm
+load --exec ../MyLabs/Lab19/odd.xsm
+load --exec ../MyLabs/Lab19/linked.xsm
+load --exhandler ../MyLabs/Lab19/exhandler.xsm
+load --module 0 ../MyLabs/Lab19/resource_manager_module0.xsm
+load --module 1 ../MyLabs/Lab19/process_manager_module1.xsm
+load --module 2 ../MyLabs/Lab19/memory_manager_module2.xsm
+load --module 4 ../MyLabs/Lab19/device_manager_module4.xsm
+load --module 5 ../MyLabs/Lab19/scheduler_module5.xsm
+load --module 7 ../MyLabs/Lab19/boot_module.xsm
+load --int=timer ../MyLabs/Lab19/timer_interrupt.xsm
+load --int=disk ../MyLabs/Lab19/disk_interrupt_handler.xsm
+load --int=console ../MyLabs/Lab19/console_interrupt_handler.xsm
+load --int=6 ../MyLabs/Lab19/read_interrupt_int6.xsm
+load --int=7 ../MyLabs/Lab19/write_interrupt_int7.xsm
+load --int=9 ../MyLabs/Lab19/exec_interrupt9.xsm
+load --int=10 ../MyLabs/Lab19/int10_module.xsm

@@ -1,0 +1,11 @@
+fdisk
+load --module 5 ../MyLabs/Lab14/scheduler_part14.xsm
+load --os ../MyLabs/Lab14/os_startup_part14.xsm
+load --module 7 ../MyLabs/Lab14/boot_module_part14.xsm
+load --idle ../MyLabs/Lab14/idle.xsm
+load --init ../MyLabs/Lab14/odd.xsm
+load --int=timer ../MyLabs/Lab14/timer_interrupt_part14.xsm
+load --int=7 ../MyLabs/Lab14/write_interrupt_int7.xsm
+load --int=10 ../MyLabs/Lab14/int10_module.xsm
+load --library ../expl/library.lib
+load --exec ../MyLabs/Lab14/even.xsm

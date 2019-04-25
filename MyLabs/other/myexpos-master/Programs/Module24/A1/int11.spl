@@ -1,0 +1,73 @@
+// int 11 
+// Getpid, Getppid, Wait and Signal are 11, 12, 13 and 14 respectively.
+
+alias syscall R5;
+alias userSP R6;
+alias pid R7;
+
+pid = [SYSTEM_STATUS_TABLE + 1];
+userSP = SP;
+
+[PROCESS_TABLE + pid * 16 + 13] = SP;
+SP = [PROCESS_TABLE + pid * 16 + 11] * 512 - 1;
+
+// At the beginning of interrupt routine 11, extract the system call number from the user stack and switch to the kernel stack.
+syscall = [[PTBR + 2 * ((userSP - 5) / 512)] * 512 + (userSP - 5) % 512];
+
+// Getpid
+if (syscall == 11) then
+	[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = pid;
+endif;
+
+// Getppid
+if (syscall == 12) then
+	[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = [PROCESS_TABLE + pid * 16 + 2];
+endif;
+
+// Wait
+// takes cpid.
+if (syscall == 13) then
+	[PROCESS_TABLE + pid * 16 + 9] = 13;
+	alias cpid R8;
+	cpid = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];
+	
+	// A process should not wait for itself or a TERMINATED process. The argument PID should be in valid range.
+	if (cpid < 0 || cpid >= MAX_PROC_NUM || [PROCESS_TABLE + cpid * 16 + 4] == TERMINATED || cpid == pid) then
+		[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = -1;
+		[PROCESS_TABLE + pid * 16 + 9] = 0;
+		SP = [PROCESS_TABLE + pid * 16 + 13];
+		ireturn;
+	endif;
+	
+	//  Change the state of the current process from RUNNING to the tuple (WAIT_PROCESS, argument PID) in the process table. Note that the STATE field in the process table is a tuple (allocated 2 words).
+	[PROCESS_TABLE + pid * 16 + 4] = WAIT_PROCESS;
+	[PROCESS_TABLE + pid * 16 + 5] = cpid;
+
+	// Invoke the scheduler to schedule other processes.
+	multipush(R5, R6, R7, R8);
+	call MOD_5;
+	multipop(R5, R6, R7, R8);
+	[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = 0;
+
+endif;
+
+// Signal
+if (syscall == 14) then
+	[PROCESS_TABLE + pid * 16 + 9] = 14;
+	alias iter R8;
+	iter = 0;
+	while (iter < MAX_PROC_NUM) do
+		if([PROCESS_TABLE + iter * 16 + 4] == WAIT_PROCESS && [PROCESS_TABLE + iter * 16 + 5] == pid) then
+			[PROCESS_TABLE + iter * 16 + 4] = READY;
+		endif;
+		iter = iter + 1;
+	endwhile;
+
+	[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = 0;
+
+endif;
+
+[PROCESS_TABLE + pid * 16 + 9] = 0;
+SP = [PROCESS_TABLE + pid * 16 + 13];
+
+ireturn;

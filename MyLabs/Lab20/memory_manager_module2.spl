@@ -1,0 +1,121 @@
+//=================== MODULE 2 ====================
+//print "memory";
+alias functionNum R1;
+
+// Get Free Page	
+if(functionNum == 1) then
+
+	// Increment WAIT_MEM_COUNT field in the system status table
+	[SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] + 1;
+
+	// while memory is full
+	while([SYSTEM_STATUS_TABLE + 2] == 0) do
+		// this process will be blocked
+		// Set the state of the invoked process as WAIT_MEM
+		[(PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1]) + 4] = WAIT_MEM;
+
+		// Schedule other process by invoking the context switch module
+		multipush(R1);
+		call MOD_5;
+		multipop(R1);
+
+	endwhile;
+
+	// Decrement the WAIT_MEM_COUNT field and MEM_FREE_COUNT field in the system status table
+	[SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] - 1;
+	[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+	// Find a free page using memory free list and set the corresponding entry as 1
+	alias i R2;
+	i = 83;
+	while(i < 128) do
+		if([MEMORY_FREE_LIST + i] == 0) then
+			[MEMORY_FREE_LIST + i] = 1;
+			break;
+		endif;
+		i = i + 1;
+	endwhile;
+
+	// store return value in R0
+	alias retVal R0;
+	retVal = i;
+
+// Release Page
+else if(functionNum == 2) then
+
+	// Decrement the entry corresponding to page number (present in R2) in the memory free list
+	alias page_number R2;
+	[MEMORY_FREE_LIST + page_number] = [MEMORY_FREE_LIST + page_number] - 1;
+
+	if([MEMORY_FREE_LIST + page_number] == 0) then
+		// increment FREE_MEM_COUNT
+		[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;
+	endif;
+
+	// Update the STATUS to READY for all processes (with valid PID) which have STATUS as WAIT_MEM
+	alias i R3;
+	i = 0;
+	while(i < MAX_PROC_NUM) do
+		if([(PROCESS_TABLE + 16*i) + 4] == WAIT_MEM) then
+			[(PROCESS_TABLE + 16*i) + 4] = READY;
+		endif;
+		i = i + 1;
+	endwhile;
+
+// Get Release block
+else if(functionNum == 4) then
+
+	alias block_number R2;
+	alias PID R3;
+	[DISK_FREE_LIST + block_number] = 0;
+
+//Get Free Code Page
+else if(functionNum == 5) then
+
+	alias block_number R2;
+	alias pid R3;
+	alias page_num R0;
+	alias i R4;
+	alias disk_map_table_entry R5;
+	alias j R6;
+	j = 0;
+	pid = 0;
+	while(pid < MAX_PROC_NUM) do
+		disk_map_table_entry = DISK_MAP_TABLE + (pid * 10);
+		i = 0;
+		while(i < 4) do
+			if([disk_map_table_entry+(i+4)] == block_number) then
+				page_num = [[PROCESS_TABLE + (pid*16) + 14] + (2*i + 8)];
+				if([[PROCESS_TABLE + (pid*16) + 14] + (2*i + 9)] == "0100") then
+					[MEMORY_FREE_LIST + page_num] = [MEMORY_FREE_LIST + page_num] + 1;
+					return;
+				endif;
+			endif;
+			i = i + 1;
+		endwhile;
+		pid = pid + 1;
+	endwhile;
+
+	// If the code page is not in memory, and has to be loaded from disk
+
+	// calling get free page
+	multipush(R1, R2, R3, R4, R5, R6);
+    functionNum = 1;
+    call MOD_2;
+	multipop(R1, R2, R3, R4, R5, R6);
+
+	// calling disk load
+	multipush(R0, R1, R2, R3, R4, R5, R6);
+	functionNum = 2;
+	R4 = block_number;
+	R2 = [SYSTEM_STATUS_TABLE + 1];
+	R3 = page_num;
+	call MOD_4;
+	multipop(R0, R1, R2, R3, R4, R5, R6);
+	
+endif;
+endif;
+endif;
+endif;
+
+return;

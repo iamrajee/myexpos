@@ -1,0 +1,6 @@
+#!/bin/bash
+./spl ../Programs/Module13/Main/haltprog.spl
+./spl ../Programs/Module13/Main/os_startup.spl
+./spl ../Programs/Module13/Main/timer.spl
+./spl ../Programs/Module13/Main/print.spl
+./spl ../Programs/Module13/Main/boot.spl

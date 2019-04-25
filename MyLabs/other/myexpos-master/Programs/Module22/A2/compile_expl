@@ -1,0 +1,12 @@
+./expl ../Programs/Module22/A2/odd.expl
+mv assemblycode.xsm ../Programs/Module22/A2/odd.xsm
+./expl ../Programs/Module22/A2/even.expl
+mv assemblycode.xsm ../Programs/Module22/A2/even.xsm
+./expl ../Programs/Module22/A2/idle.expl
+mv assemblycode.xsm ../Programs/Module22/A2/idle.xsm
+./expl ../Programs/Module22/A2/init.expl
+mv assemblycode.xsm ../Programs/Module22/A2/init.xsm
+./expl ../Programs/Module22/A2/parent.expl
+mv assemblycode.xsm ../Programs/Module22/A2/parent.xsm
+./expl ../Programs/Module22/A2/child.expl
+mv assemblycode.xsm ../Programs/Module22/A2/child.xsm

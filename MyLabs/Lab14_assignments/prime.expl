@@ -1,0 +1,41 @@
+decl 
+	int checkPrime(int n);
+enddecl
+
+int checkPrime(int n) {
+	decl
+		int j, flag;
+	enddecl
+	begin
+		flag = 1;
+		j = 2;
+		while((j*j) <= n) do
+			if((n % j) == 0) then
+				flag = 0;
+				break;
+			endif;
+			j = j + 1;
+		endwhile;
+		if(n == 1) then
+			flag = 0;
+		endif;
+		return flag;
+	end
+}
+
+int main() {
+	decl 
+		int i, isprime;
+	enddecl
+	begin
+		i = 1;
+		while(i <= 100) do
+			if(checkPrime(i) == 1) then
+				isprime = exposcall("Write", -2, "prime");
+				isprime = exposcall("Write", -2, i);
+			endif;
+			i = i + 1;
+		endwhile;
+		return 0;
+	end
+}

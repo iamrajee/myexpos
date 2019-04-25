@@ -1,0 +1,129 @@
+// Process Manager Module
+
+alias functionNum R1;
+alias pid R2;
+alias retVal R0;
+
+// Free User Area Page	
+if (functionNum == 2) then
+
+    alias userAreaPage R3;
+    userAreaPage = [PROCESS_TABLE + pid * 16 + 11];
+
+    // Free the user area page by invoking the Release Page function.
+    multipush(R0, R1, R2, R3);
+    R1 = 2;
+    R2 = userAreaPage;
+    call MOD_2;
+    multipop(R0, R1, R2, R3);
+
+    return;
+endif;
+
+// Exit Process	
+// takes pid.
+if (functionNum == 3) then
+
+    multipush(R0, R1, R2, R3);
+
+    // Invoke the Free Page Table function with same PID to deallocate the page table entries.
+    R1 = 4;
+    R2 = pid;
+    call MOD_1;
+    
+    // Invoke the Free user Area Page function with the same PID to free the user area page.
+    R1 = 2;
+    R2 = pid;
+    call MOD_1;
+
+    multipop(R0, R1, R2, R3);
+    
+    //Set the state of the process as TERMINATED and return to the caller.
+    [PROCESS_TABLE + 16 * pid + 4] = TERMINATED;
+
+    return;
+endif;
+
+// Free Page Table	
+// Free the page table entry and the used pages. The Disk Map table entries are also freed.
+// takes pid.
+if (functionNum == 4) then
+    alias pid R2;
+    //  Invalidate the page table entries for the library pages
+    //  by setting page number as -1 and auxiliary data as "0000" for each entry.
+    PTBR = PAGE_TABLE_BASE + pid * 20;
+    PTLR = 10;
+    //Library
+    [PTBR+0] = -1;
+    [PTBR+1] = "0000";
+    [PTBR+2] = -1;
+    [PTBR+3] = "0000";
+
+    alias iter R6;
+    iter = 2;
+
+    // For each valid entry in the page table, release the page by 
+    // invoking the Release Page function and invalidate the entry.
+    while (iter < PTLR) do 
+        if ([PTBR + 2 * iter] != -1) then
+            multipush(R0, R1, R2, R3, R6);
+            R1 = 2;
+            R2 = [PTBR + 2 * iter];
+            call MOD_2;
+            multipop(R0, R1, R2, R3, R6);
+            [PTBR + 2 * iter + 1] = "0000";
+        endif;
+        iter = iter + 1;
+    endwhile;
+
+    // Go through the heap and stack entries in the disk map table of the process with given PID.
+    // If any valid entries are found, invoke the Release Block function in the memory manager module. 
+    multipush(R0, R1, R2, R3, R6);
+        if ([DISK_MAP_TABLE + pid * 10 + 2] != -1) then
+            multipush(R2);
+            R0 = 0;
+            R1 = 4;
+            R2 = [DISK_MAP_TABLE + pid * 10 + 2];
+            R3 = R2;
+            multipop(R2);
+        endif;
+        if ([DISK_MAP_TABLE + pid * 10 + 3] != -1) then
+            multipush(R2);
+            R0 = 0;
+            R1 = 4;
+            R2 = [DISK_MAP_TABLE + pid * 10 + 3];
+            R3 = R2;
+            multipop(R2);
+        endif;
+        if ([DISK_MAP_TABLE + pid * 10 + 8] != -1) then
+            multipush(R2);
+            R0 = 0;
+            R1 = 4;
+            R2 = [DISK_MAP_TABLE + pid * 10 + 8];
+            R3 = R2;
+            multipop(R2);
+        endif;
+        if ([DISK_MAP_TABLE + pid * 10 + 9] != -1) then
+            multipush(R2);
+            R0 = 0;
+            R1 = 4;
+            R2 = [DISK_MAP_TABLE + pid * 10 + 9];
+            R3 = R2;
+            multipop(R2);
+        endif;
+    multipop(R0, R1, R2, R3, R6);
+
+    // Invalidate all the entries of the disk map table. 
+    iter = 0;
+    while (iter < 10) do
+        [DISK_MAP_TABLE + pid * 10 + iter] = -1;
+        iter = iter + 1;
+    endwhile;
+
+
+
+    return;
+
+endif;
+
+return;

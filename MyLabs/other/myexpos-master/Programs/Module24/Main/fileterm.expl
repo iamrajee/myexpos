@@ -1,0 +1,19 @@
+int main() {
+    decl
+        int x, y, desc, ret;
+    enddecl
+    begin
+        desc = exposcall ("Open", "numbers.dat");
+        if (desc < 0) then
+            y = exposcall ("Write", -2, "not open");
+        else 
+            ret = 0;
+            while (ret >= 0) do
+                ret = exposcall ("Read", desc, x);
+                y = exposcall ("Write", -2, x);
+            endwhile;
+        endif;
+        
+        return 0;
+    end
+}

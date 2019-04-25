@@ -1,0 +1,157 @@
+//setting the MODE flag in the process table of the calling process
+alias userSP R5;
+alias pid R6;
+alias processTable R7;
+alias retVal R10;
+
+pid = [SYSTEM_STATUS_TABLE + 1];
+processTable = PROCESS_TABLE + 16 * pid;
+userSP = SP;
+
+[processTable + 9] = 7;
+[processTable + 13] = userSP;
+SP = [processTable + 11] * 512 - 1;
+
+retVal = [PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512;
+
+//finding the file descriptor for print system call from the user stack
+alias fileDescriptor R8;
+fileDescriptor=[[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];
+
+// If input is to be read from terminal    /* indicated by a file descriptor value of -1 */
+if (fileDescriptor == -1) then
+    alias word R9;
+    word = [[PTBR + 2 * ((userSP - 3) / 512)] * 512 + ((userSP - 3) % 512)];
+
+    // Call the terminal_read()function in the Device manager  Module
+    multipush(R5, R6, R7, R8, R9, R10);
+    R1 = 4; // function number in device manager.
+    R2 = pid;
+    R3 = word;
+    call MOD_4;
+    multipop(R5, R6, R7, R8, R9, R10);
+else
+    // If file descriptor is invalid, return -1.    /* File descriptor value should be within the range 0 to 7 (both included). */
+    if (fileDescriptor < 0 || fileDescriptor > 7) then
+        [retVal] = -1;
+        [processTable + 9] = 0;
+        SP = [processTable + 13];
+        ireturn;
+    endif;
+
+    //breakpoint;
+    // Locate the Per-Process Resource Table of the current process.
+    alias resTableEntry R11;
+    resTableEntry = [processTable + 11] * 512 + RESOURCE_TABLE_OFFSET + 2 * fileDescriptor;
+
+    // If the Resource identifier field of the Per Process Resource Table entry is invalid or does not indicate a FILE, return -1.
+    if ([resTableEntry] != FILE) then
+        [retVal] = -1;
+        [processTable + 9] = 0;
+        SP = [processTable + 13];
+        ireturn;
+    endif;
+
+    // Get the index of the Open File Table entry from the Per Process Resource Table entry.
+    alias fileTableEntry R12;
+    fileTableEntry = [resTableEntry + 1];
+
+    // Get the index of the Inode Table entry from the Open File Table entry.
+    alias inode_index R13;
+    inode_index = [OPEN_FILE_TABLE + fileTableEntry * 4];
+    
+    // Acquire the Lock on the File by calling the acquire_inode() function in the Resource Manager module.
+    multipush(R5, R6, R7, R8, R9, R10, R11, R12, R13);
+    R1 = 4;
+    R2 = inode_index;
+    R3 = pid;
+    call MOD_0;
+    multipop(R5, R6, R7, R8, R9, R10, R11, R12, R13);
+
+    // If acquiring the inode fails, return -1.
+    if (R0 < 0) then
+        [retVal] = -1;
+        [processTable + 9] = 0;
+        SP = [processTable + 13];
+        ireturn;
+    endif;
+
+    // Get the Lseek position from the Open File Table entry.
+    alias lseek R14;
+    lseek = [OPEN_FILE_TABLE + fileTableEntry * 4 + 2];
+
+    // Get the physical address curresponding to the logical address of Memory Buffer address given as input.
+    alias word R9;
+    R4 = [[PTBR + 2 * ((userSP - 3) / 512)] * 512 + ((userSP - 3) % 512)];
+    word = [PTBR + 2 * (R4 / 512)] * 512 + (R4 % 512);
+
+    if (inode_index == INODE_ROOT) then
+        // If the lseek value is equal to the root file size(480), release_inode() return -2.
+        if (lseek >= 480) then
+
+            multipush(R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
+            R1 = 5;
+            R2 = inode_index;
+            R3 = pid;
+            call MOD_0;
+            multipop(R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
+
+            [retVal] = -2;
+            [processTable + 9] = 0;
+            SP = [processTable + 13];
+            ireturn;
+        endif;
+
+        // Read from the word at lseek position in memory copy of root file to the translated memory address. 
+        //  /* Use SPL Constant ROOT_FILE */
+        [word] = [ROOT_FILE + lseek];
+
+        // Increment the Lseek position in the Open File Table.
+        [OPEN_FILE_TABLE + fileTableEntry * 4 + 2] = lseek + 1;
+    else 
+        // If lseek position is same as the file size, release_inode() and return -2.  /* End of file reached */
+        if (lseek >= [INODE_TABLE + 16 * inode_index + 2]) then
+
+            multipush(R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
+            R1 = 5;
+            R2 = inode_index;
+            R3 = pid;
+            call MOD_0;
+            multipop(R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
+
+            [retVal] = -2;
+            [processTable + 9] = 0;
+            SP = [processTable + 13];
+            ireturn;
+        endif;
+
+        // Find the disk block number and the position in the block from which input is read.
+
+        // Read the data from the File Buffer by calling the buffered_read() function in the File Manager module.
+        multipush(R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
+        R1 = 2;
+        R2 = [INODE_TABLE + 16 * inode_index + 8 + (lseek / 512)];
+        R3 = lseek % 512;
+        R4 = word;
+        call MOD_3;
+        multipop(R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
+
+        // Increment the Lseek position in the Open File Table.
+        [OPEN_FILE_TABLE + fileTableEntry * 4 + 2] = lseek + 1;
+
+    endif;
+ 
+    // Release the Lock on the File by calling the release_inode() function in the Resource Manager module.
+    multipush(R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
+    R1 = 5;
+    R2 = inode_index;
+    R3 = pid;
+    call MOD_0;
+    multipop(R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
+
+endif;
+
+[retVal] = 0;
+[processTable + 9] = 0;
+SP = [processTable + 13];
+ireturn;

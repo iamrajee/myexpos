@@ -1,0 +1,10 @@
+./expl ../Programs/Module16/A1/odd.expl
+mv assemblycode.xsm ../Programs/Module16/A1/odd.xsm
+./expl ../Programs/Module16/A1/even.expl
+mv assemblycode.xsm ../Programs/Module16/A1/even.xsm
+./expl ../Programs/Module16/A1/idle.expl
+mv assemblycode.xsm ../Programs/Module16/A1/idle.xsm
+./expl ../Programs/Module16/A1/bubble.expl
+mv assemblycode.xsm ../Programs/Module16/A1/bubble.xsm
+./expl ../Programs/Module16/A1/gcd.expl
+mv assemblycode.xsm ../Programs/Module16/A1/gcd.xsm

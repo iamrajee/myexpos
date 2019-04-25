@@ -1,0 +1,76 @@
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = -1;
+
+alias userSP R10;
+userSP = SP;
+
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;
+backup;
+
+multipush (EIP);
+
+if (EC != 0 || userSP == PTLR * 512 - 1 ) then
+    
+    if (EC == 2) then
+        print ("illegal memory");
+    endif;
+
+    if (EC == 1) then
+        print ("illegal instruction");
+    endif;
+
+    if (EC == 3) then
+        print ("arithematic exception");
+    endif;
+
+    multipush (R0 , R10);
+    R1 = 3;
+    R2 = [SYSTEM_STATUS_TABLE + 1];
+    call MOD_1;               //exiting the process number
+    multipop (R0 , R10);
+
+    //call the scheduler 
+    multipush (R0 , R10);
+    call MOD_5;
+    multipop (R0 , R10);
+endif;
+
+//the error is due to the code page
+if (EPN > 3  && EPN < 8) then
+    //get the code page
+
+    //invoking the get code page
+    R1 = 5;
+    R2 = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + EPN];
+    call MOD_2;
+
+    alias ptbr R3;
+    ptbr = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 14)];
+    [ptbr + EPN * 2] = R0;
+    [ptbr + EPN * 2 + 1] = "1100";
+
+endif;
+
+if (EPN > 1 && EPN < 4) then
+    R1=1;
+    call MOD_2;
+
+    alias ptbr R3;
+    ptbr = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 14)];
+
+    [ptbr + EPN * 2] = R0;
+    [ptbr + EPN * 2 + 1] = "1110";
+endif;
+
+//reset mode Flag
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 9] = 0;
+
+multipop(EIP);
+
+restore;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16 + 13)];
+SP = SP + 1;
+
+[[PTBR + 2 * (SP / 512) ] * 512 + SP % 512 ] = EIP;
+ireturn;

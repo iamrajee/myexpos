@@ -1,0 +1,110 @@
+//=================== MODULE 4 ====================
+//print "Device";
+alias functionNum R1;
+alias currentPID R2;
+
+//================ Disk Load ===================
+if(functionNum == 2) then
+
+	alias pageNum R3;
+	alias blockNum R4;
+
+	multipush(R1, R2, R3, R4);
+	functionNum = 3;
+	call MOD_0;
+	multipop(R1, R2, R3, R4);
+
+	// set operation type to be load
+	[DISK_STATUS_TABLE + 1] = 0;
+
+	// set page number
+	[DISK_STATUS_TABLE + 2] = pageNum;
+
+	// set block number
+	[DISK_STATUS_TABLE + 3] = blockNum;
+
+	// use the load statement to load the disk block to memory
+	load(pageNum, blockNum);
+
+	[(PROCESS_TABLE + 16*currentPID) + 4] = WAIT_DISK;
+
+	// invoke the scheduler
+	call MOD_5;
+
+//================ TERMINAL WRITE =================
+else if(functionNum == 3) then
+	
+	alias word R3;
+	//============== Calling Acquire Terminal ===============
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	functionNum = 8;
+
+	// calling module 0
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+	print word;
+	//=========================================================
+
+	//============== Calling Release Terminal =================
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	functionNum = 9;
+
+	// calling module 0
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+//================================================
+
+//================ TERMINAL READ =================
+
+else if(functionNum == 4) then
+
+	alias word R3;
+	//print "ter read";
+	//============== Calling Acquire Terminal ===============
+	//saving register values
+	multipush(R1, R2, R3);
+
+	// storing arguments in R1 and R2
+	functionNum = 8;
+
+	// calling module 0 to acquire terminal
+	call MOD_0;
+
+	multipop(R1, R2, R3);
+
+	//print "rread";
+	// use read statement, for requesting to read from the terminal
+	read;
+
+	//print "proc";
+	//print [SYSTEM_STATUS_TABLE + 1];
+	[(PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1]*16)) + 4] = WAIT_TERMINAL;
+	
+	//saving register values
+	multipush(R1, R2, R3);
+
+	call MOD_5;
+
+	multipop(R1, R2, R3);
+
+	word =  ([PTBR + 2 * (word/512)] * 512) + (word % 512);
+
+	[word] = [(PROCESS_TABLE + (16 * [SYSTEM_STATUS_TABLE + 1]))  + 8];
+
+	//=========================================================
+
+endif;
+endif;
+endif;
+
+return;

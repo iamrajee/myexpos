@@ -1,0 +1,27 @@
+#!/bin/bash
+./xfs-interface fdisk
+./xfs-interface load --exec ../Programs/Module20/Main/even.xsm
+./xfs-interface load --exec ../Programs/Module20/Main/odd.xsm
+./xfs-interface load --init ../Programs/Module20/Main/init.xsm
+./xfs-interface load --idle ../Programs/Module20/Main/idle.xsm
+./xfs-interface load --int=10 ../Programs/Module20/Main/int10.xsm
+./xfs-interface load --exhandler ../Programs/Module20/Main/exe_handler.xsm
+./xfs-interface load --os ../Programs/Module20/Main/os_startup.xsm
+./xfs-interface load --library ../expl/library.lib
+./xfs-interface load --int=timer ../Programs/Module20/Main/timer.xsm
+./xfs-interface load --int=7 ../Programs/Module20/Main/int7.xsm
+./xfs-interface load --module 7 ../Programs/Module20/Main/boot.xsm
+./xfs-interface load --module 5 ../Programs/Module20/Main/scheduler.xsm
+./xfs-interface load --module 0 ../Programs/Module20/Main/module_0.xsm
+./xfs-interface load --module 4 ../Programs/Module20/Main/module_4.xsm
+./xfs-interface load --int=6 ../Programs/Module20/Main/int6.xsm
+./xfs-interface load --int=console ../Programs/Module20/Main/console.xsm
+./xfs-interface load --int=9 ../Programs/Module20/Main/int9.xsm
+./xfs-interface load --int=8 ../Programs/Module20/Main/int8.xsm
+./xfs-interface load --module 1 ../Programs/Module20/Main/module_1.xsm
+./xfs-interface load --module 2 ../Programs/Module20/Main/module_2.xsm
+./xfs-interface load --int=disk ../Programs/Module20/Main/diskint.xsm
+
+./xfs-interface dump --inodeusertable
+mv inodeusertable.txt ../Programs/Module20/Main/inodeusertable.txt
+

@@ -1,0 +1,64 @@
+
+B extends A{
+				int f1(int x, int y)
+				{
+					begin
+					 return x+y;
+					end
+				}
+
+				int f2()
+				{
+					decl
+						int x;
+					endecl
+					begin
+						read(x);
+						write(x);
+						return 0;
+					end
+				}
+
+	}
+
+C extends B{
+				int f1()
+				{
+					decl
+						str b;
+					enddecl
+					begin
+						read(b);
+						write(b);
+						return 0;
+					end
+				}
+				int f3(int a, int b)
+				{
+					begin
+						return a-b;
+					end
+				}
+			}
+
+
+
+
+
+
+
+int main()
+{
+	decl
+		int x;
+	enddecl
+	begin
+		read(x);
+		x = x+15;
+		write(x);
+
+		return 0;
+	end
+}
+
+				

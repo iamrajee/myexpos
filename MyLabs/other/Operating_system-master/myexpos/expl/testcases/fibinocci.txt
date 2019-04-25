@@ -1,0 +1,36 @@
+decl
+	integer fib(integer n);
+enddecl
+
+integer fib(integer n)
+{
+	decl
+		integer f;
+	enddecl
+	begin
+		if(n==0) then
+			f=0;
+			
+		else 
+			if(n==1) then
+					f=1;
+			else
+				f = fib(n-1) + fib(n-2);
+			endif;
+		endif;
+		return f;
+	end
+}
+
+integer main()
+{
+	decl
+		integer a,res;
+	enddecl
+	begin
+		read(a);
+		res = fib(a);
+		write(res);
+		return 0;
+	end	
+}	

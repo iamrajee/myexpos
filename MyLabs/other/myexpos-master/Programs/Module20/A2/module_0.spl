@@ -1,0 +1,71 @@
+// Resource Manager Module
+
+alias functionNum R1;
+alias currentPID R2;
+
+
+// Acquire Disk
+// takes pid.
+if (functionNum == 3) then
+    
+    while([DISK_STATUS_TABLE] == 1) do
+
+        // set the state of the process to WAIT_DISK and invoke the scheduler. 
+        [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_DISK;
+        multipush(R0, R1, R2);
+        call MOD_5;
+        multipop(R0, R1, R2);
+
+    endwhile;
+
+    //  Lock the disk by setting the STATUS and the PID fields in the Disk Status Table to 1 and PID 
+    [DISK_STATUS_TABLE] = 1;
+    [DISK_STATUS_TABLE + 4] = currentPID;
+    return;
+
+endif;
+
+
+
+// while ( Terminal device is locked ){    /* Check the Status field in the Terminal Status Table */
+//     Set state of the process as ( WAIT_TERMINAL , - );
+//     Call the switch_context() function from the Scheduler Module.
+// }
+    
+// Lock the Terminal device by setting the Status and PID fields in the Terminal Status Table.
+
+// return;
+
+if (functionNum == 8) then
+    while ([TERMINAL_STATUS_TABLE] == 1) do 
+        [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_TERMINAL;
+        multipush(R0, R1, R2);
+        call MOD_5;
+        multipop(R0, R1, R2);
+        // Change the STATUS field to 1 and PID field to currentPID in the Terminal Status Table.
+    endwhile;
+    [TERMINAL_STATUS_TABLE] = 1;
+    [TERMINAL_STATUS_TABLE + 1] = currentPID;
+    return;
+endif;
+
+if (functionNum == 9) then
+    if (currentPID != [TERMINAL_STATUS_TABLE + 1]) then
+        R0 = -1;
+        return;
+    endif;
+    [TERMINAL_STATUS_TABLE] = 0;
+    alias iter R4;
+    iter = 1;
+    while(iter < MAX_PROC_NUM) do
+        alias state R5;
+        if(([PROCESS_TABLE + 16 * iter + 1] == iter) && ([PROCESS_TABLE + 16 * iter + 4] == WAIT_TERMINAL)) then
+            [PROCESS_TABLE + 16 * iter + 4] = READY;
+        endif;
+        iter = iter + 1;
+    endwhile;
+    R0 = 0;
+    return;
+endif;
+
+return;

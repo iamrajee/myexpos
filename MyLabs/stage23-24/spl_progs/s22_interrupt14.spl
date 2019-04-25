@@ -1,0 +1,136 @@
+//This is the interrupt to implement the wait, signal , getpid and getppid system calls
+//R14 , R15 , 
+alias systemNum R14;
+alias userSP R15;
+
+
+//userSP-5 is the position that stores the system call number
+userSP = SP;
+systemNum = [([PTBR + 2 * ((userSP - 5) / 512) ] * 512 )  + ((userSP - 5) % 512)];
+
+//this is to switch to the kernel stack
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;
+
+
+//this is for the semlock system call
+if (systemNum == 19) then
+    
+
+
+
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = systemNum;
+
+    alias semID R13;
+    semID = [([PTBR + 2 * ((userSP - 4) / 512) ] * 512 )  + ((userSP - 4) % 512)];
+
+    
+    alias per_process R12;
+    per_process = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1 ] * 16 + 11] * 512 + 512 - 16;
+
+
+    alias counter2 R10;
+    counter2 = 0;
+    while (counter2 < 8) do
+        if ([per_process + counter2 * 2 + 1 ] == semID && [per_process + counter2 * 2] == 1) then
+            break;
+        endif;
+        counter2 = counter2 + 1;
+    endwhile;
+    
+    
+        
+    //checking if the semid is 0 or not
+    if (semID < 0 || semID > 7 || [SEMAPHORE_TABLE + semID * 4 + 1 ] == 0 || counter2 >= 8) then  //last one is for process count
+        
+        [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = -1;
+        [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+
+    //print ("details");
+    //print (semID);
+    //print ([SEMAPHORE_TABLE + semID * 4]);
+
+    while ([SEMAPHORE_TABLE + semID * 4] != -1 && [SEMAPHORE_TABLE + semID * 4] != [SYSTEM_STATUS_TABLE + 1] ) do
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 4] = WAIT_SEMAPHORE;
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 5] = semID;
+
+        //invoke the scheduler        
+        multipush (R10 , R11 , R12 , R13 , R14,  R15);
+        call MOD_5;
+        multipop (R10 , R11 , R12 , R13 , R14 , R15);
+
+    endwhile;
+    //print ("hi there");
+    //print ([SYSTEM_STATUS_TABLE + 1]);
+    [SEMAPHORE_TABLE + semID * 4] = [SYSTEM_STATUS_TABLE + 1];
+
+    [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = 0;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1 ] * 16 + 9] = 0;
+
+endif;
+
+//for the sem unlock
+if (systemNum == 20) then
+
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = systemNum;
+
+    alias semID R13;
+    semID = [([PTBR + 2 * ((userSP - 4) / 512) ] * 512 )  + ((userSP - 4) % 512)];
+
+    alias per_process R12;
+    per_process = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1 ] * 16 + 11] * 512 + 512 - 16;
+
+    alias counter2 R10;
+    counter2 = 0;
+    while (counter2 < 8) do
+        if ([per_process + counter2 * 2 + 1 ] == semID && [per_process + counter2 * 2] == 1) then
+            break;
+        endif;
+        counter2 = counter2 + 1;
+    endwhile;
+    
+    
+
+
+    //checking if the semid is 0 or not
+    if (semID < 0 || semID > 7 || [SEMAPHORE_TABLE + semID * 4 + 1 ] == 0 || counter2 >= 8) then  //last one is for process count
+        [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = -1;
+        [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+
+    if ([SEMAPHORE_TABLE + 4 * semID] != -1) then
+        
+        if ([SEMAPHORE_TABLE + 4 * semID] != [SYSTEM_STATUS_TABLE + 1]) then
+            [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = -2;
+            [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 0;
+            SP = userSP;
+            ireturn; 
+        endif;
+
+        [SEMAPHORE_TABLE + 4 * semID] = -1;         //locking pid to -1
+        alias counter R4;
+        counter = 0;
+        while (counter < 16) do
+            if ([PROCESS_TABLE + counter * 16 + 4] == WAIT_SEMAPHORE && [PROCESS_TABLE + counter * 16 + 5] == semID) then
+                [PROCESS_TABLE + counter * 16 + 4] = READY;
+            endif;
+            counter = counter + 1;
+        endwhile;
+    endif;
+
+    [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = 0;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1 ] * 16 + 9] = 0;
+endif;
+
+
+//this is after using all the system call
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;   //setting the mode flag
+SP = userSP;
+ireturn;

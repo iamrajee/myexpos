@@ -1,0 +1,21 @@
+#!/bin/bash
+./xfs-interface fdisk
+# ./xfs-interface load --exec ../Programs/Module16/A1/even.xsm
+./xfs-interface load --init ../Programs/Module16/A1/bubble.xsm
+./xfs-interface load --idle ../Programs/Module16/A1/idle.xsm
+./xfs-interface load --int=10 ../Programs/Module16/A1/int10.xsm
+./xfs-interface load --exhandler ../Programs/Module16/A1/haltprog.xsm
+./xfs-interface load --os ../Programs/Module16/A1/os_startup.xsm
+./xfs-interface load --library ../expl/library.lib
+./xfs-interface load --int=timer ../Programs/Module16/A1/timer.xsm
+./xfs-interface load --int=7 ../Programs/Module16/A1/int7.xsm
+./xfs-interface load --module 7 ../Programs/Module16/A1/boot.xsm
+./xfs-interface load --module 5 ../Programs/Module16/A1/scheduler.xsm
+./xfs-interface load --module 0 ../Programs/Module16/A1/module_0.xsm
+./xfs-interface load --module 4 ../Programs/Module16/A1/module_4.xsm
+./xfs-interface load --int=6 ../Programs/Module16/A1/int6.xsm
+./xfs-interface load --int=console ../Programs/Module16/A1/console.xsm
+
+./xfs-interface dump --inodeusertable
+mv inodeusertable.txt ../Programs/Module16/A1/inodeusertable.txt
+

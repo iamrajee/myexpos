@@ -1,0 +1,26 @@
+int main()
+{
+decl
+     int temp;
+     string fname;
+enddecl
+begin
+    temp = exposcall("Write",-2,"dfile name");
+    temp = exposcall("Read",-1, fname);
+    temp = exposcall ("Delete", fname);
+
+    temp = exposcall("Write",-2,"exfile name");
+    temp = exposcall("Read",-1, fname);
+    temp = exposcall ("Delete", fname);
+
+    temp = exposcall ("Delete", "test1.xsm");	
+
+    temp = exposcall ("Exec", fname);
+    if (temp < 0) then
+      temp = exposcall ("Write", -2, "EXEC FAIL");s
+    endif;
+
+    return 0;
+end
+}
+

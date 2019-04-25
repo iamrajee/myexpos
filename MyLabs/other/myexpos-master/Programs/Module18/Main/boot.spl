@@ -1,0 +1,153 @@
+// Load interrupt routine 9, module 1, module 2 and inode table from the disk to the memory
+loadi(20, 33);
+loadi(21, 34);
+
+// 55 - 56	Module 1: Process Manager	2
+// 57 - 58	Module 2: Memory Manager	2
+// 42 - 43	Module 1: Process Manager	21504 - 22527	1024
+// 44 - 45	Module 2: Memory Manager	22528 - 23551	1024
+loadi(42, 55);
+loadi(43, 56);
+loadi(44, 57);
+loadi(45, 58);
+
+// inode table.
+loadi (59, 3);
+loadi (60, 4);
+
+// Disk Controller Interrupt Routine
+loadi (6, 19);
+loadi (7, 20);
+
+// Initialize the STATUS field in the Disk Status Table to 0.
+[DISK_STATUS_TABLE + 0] = 0; // status
+
+////////////////////////////////////////////////////////
+///Initialize the memory free list with value 1 for pages used and 0 for free pages.
+////////////////////////////////////////////////////////
+alias cnter R1;
+cnter = 76;
+while (cnter < 128) do
+    [MEMORY_FREE_LIST + cnter] = 0;
+    cnter = cnter + 1;
+endwhile;   
+cnter = 0;
+while (cnter < 83) do
+    [MEMORY_FREE_LIST + cnter] = 1;
+    cnter = cnter + 1;
+endwhile;
+[SYSTEM_STATUS_TABLE + 3] = 0; 
+[SYSTEM_STATUS_TABLE + 2] = 45; 
+
+
+// Load Module 0 from disk pages 53 and 54 to memory pages 40 and 41.
+loadi(40, 53);
+loadi(41, 54);
+
+// Load console interrupt handler and interrupt 6 from disk to memory.
+loadi(8, 21);
+loadi(9, 22);
+loadi(14, 27);
+loadi(15, 28);
+
+// Load Module 4 from disk pages 61 and 62 to memory pages 48 and 49.
+loadi(48, 61);
+loadi(49, 62);
+
+// Initialize the STATUS field in the Terminal Status table as 0. 
+// This will indicate that the terminal is free before scheduling the first process.
+[TERMINAL_STATUS_TABLE] = 0;
+
+//loading the INIT program
+loadi(65, 7);
+loadi(66, 8);
+
+// loading the exec program
+//loadi(84, 69);
+
+//loading INT=10 routine
+loadi(22, 35);
+loadi(23, 36);
+
+//loading INT=7 routine
+loadi(16, 29);
+loadi(17, 30);
+
+//loading exception handler
+loadi(2, 15);
+loadi(3, 16);
+
+//loading the timer interrupt handler
+loadi(4, 17);
+loadi(5, 18);
+
+//loading the library
+loadi(63, 13);
+loadi(64, 14);
+
+//loading the sceduler
+loadi(50,63);
+loadi(51,64);
+
+//Setting the Page Table for the INIT program (here pid = 1)
+PTBR = PAGE_TABLE_BASE + 20;
+PTLR = 10;
+
+//Library
+[PTBR+0] = 63;
+[PTBR+1] = "0100";
+[PTBR+2] = 64;
+[PTBR+3] = "0100";
+
+//Heap
+[PTBR+4] = 78;
+[PTBR+5] = "0110";
+[PTBR+6] = 79;
+[PTBR+7] = "0110";
+
+//Code
+[PTBR+8] = 65;
+[PTBR+9] = "0100";
+[PTBR+10] = 66;
+[PTBR+11] = "0100";
+[PTBR+12] = -1;
+[PTBR+13] = "0000";
+[PTBR+14] = -1;
+[PTBR+15] = "0000";
+
+//Stack
+[PTBR+16] = 76;
+[PTBR+17] = "0110";
+[PTBR+18] = 77;
+[PTBR+19] = "0110";
+
+//Storing the IP in the top of the user stack and setting the SP
+[76 * 512] = [65 * 512 + 1];
+
+//Setting the process table for the init program
+[PROCESS_TABLE + 17] = 1;                       // pid
+[PROCESS_TABLE + 20] = CREATED;                 // State
+[PROCESS_TABLE + 27] = 83;                      // User area
+[PROCESS_TABLE + 28] = 0;                       // Kernel SP
+[PROCESS_TABLE + 29] = 8 * 512;                 // User SP
+[PROCESS_TABLE + 30] = PAGE_TABLE_BASE + 20;    // PTBR
+[PROCESS_TABLE + 31] = 10;                      // PTLR
+
+// Initialize the per-process resource table of init process.
+alias iter R9;
+iter = 83 * 512 + 512 - 16;
+while (iter < (83 * 512 + 512)) do
+    [iter] = -1;
+    iter = iter + 1;
+endwhile;
+
+//setting the process state of all the other processes in the process table to "TERMINATED"
+alias ctr R0;
+ctr = 2;
+while(ctr < MAX_PROC_NUM) do
+    [PROCESS_TABLE + ctr * 16 + 4] = TERMINATED;
+    ctr = ctr + 1;
+endwhile;
+
+
+return;

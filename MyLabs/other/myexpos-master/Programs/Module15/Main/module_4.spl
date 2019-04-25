@@ -1,0 +1,28 @@
+// Device Manager Module
+
+alias functionNum R1;
+alias currentPID R2;
+
+// Store the function number 8 in register R1 and PID of the curr
+// the System Status table in register R2 (Can use currentPID, as
+// it already contain current PID value).
+
+if (functionNum == 3) then
+    multipush(R0, R1, R2, R3);
+    R1 = 8;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R0, R1, R2, R3);
+
+    print R3;
+
+    multipush(R0, R1, R2, R3);
+    R1 = 9;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R0, R1, R2, R3);
+    return;
+else 
+    return;
+endif;
+

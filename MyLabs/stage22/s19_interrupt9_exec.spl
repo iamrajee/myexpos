@@ -1,0 +1,180 @@
+// R1 , R2 , R3 , R4 , R5 , R6 , R7
+//exec system call has the system call number 9
+//this is for the exec system call
+
+    alias userSP R1;
+    userSP = SP;
+
+//this is for saving the user stack as the current SP
+//setting the value of the sp to the kernel stack
+    [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)] = SP;
+    SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;         
+
+//set the mode flag to the system call number of the exec system call
+//9 is the system call number for the exec process system call
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+
+//getting the file name
+//only one argument is given and that too is in userSP - 4
+    alias fileName R2;
+    fileName = [([PTBR + 2 * ((userSP - 4) / 512) ] * 512 )  + ((userSP - 4) % 512)];
+
+//INODE_TABLE is the constant that point to the starting address of the table which stores the inode table
+//as well as other tables
+//first word in the inode table is the file type
+//second word is the name of the file
+//if the page is not acquired then it is -1
+
+
+    alias inode_tabe_entry R3;
+    alias inode_index R4;                //for accessing the elements of the process
+    inode_tabe_entry = INODE_TABLE;
+    inode_index = 0;
+    while (inode_index < 60) do
+        inode_tabe_entry = INODE_TABLE + 16 * inode_index;
+        if ([inode_tabe_entry + 1] == fileName && [inode_tabe_entry + 0 ] == EXEC) then
+            break;
+        endif;
+        inode_index= inode_index + 1;
+    endwhile;
+
+    //if the file is not found then return to user mode with return value of -1
+    if (inode_index >= 60 ) then 
+        
+        alias physicalAddressRetVal R5;
+        physicalAddressRetVal = ([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512);
+        [physicalAddressRetVal] = -1;
+    
+        SP = userSP;                         //setting the user stack
+        [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0; 
+        ireturn;
+    endif;
+
+   // print (fileName);
+   // print (inode_index);
+
+//if the value is present in the inode table then the inode_index will store the 
+
+//calling the exit process function present in the resource manager module
+    multipush (R0, R1, R2 , R3 , R4 , R5);
+    R1 = 3;                                  //function number for the exit system call
+    R2 = [SYSTEM_STATUS_TABLE + 1];          //pid of the process
+    call MOD_1;                              //this is the process manager module
+    multipop (R0, R1, R2 , R3 , R4 , R5);
+
+//reclaiming the user page area of the process
+//11 is for the user area page number
+//R6 stores the value of the user area page number
+    R6 = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)];
+    [MEMORY_FREE_LIST + R6] = [MEMORY_FREE_LIST + R6] + 1;               //incrementing the memory free list
+    [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;      //decrementing the memory free count
+
+//setting the SP to the top of the stack
+    SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;
+
+//update the state to the running
+//update the inode field of the process table
+    [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 4)] = RUNNING;           //state field of the current process
+    [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 7)] = inode_index;       //inode index
+
+//updating the page table
+
+    PTBR = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 14)];
+    PTLR = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 15)];
+
+    //setting the valid bits
+    //library ; this is read only
+    [PTBR + 0] = 63;
+    [PTBR + 1] = "0100";
+    [PTBR + 2] = 64;
+    [PTBR + 3] = "0100";
+
+//this is for the Heap
+
+    [PTBR + 4] = -1;                         //use page as the heap
+    [PTBR + 5] = "0000";
+    [PTBR + 6] = -1;                         //use page as the heap
+    [PTBR + 7] = "0000";
+    
+    //for the stack
+    multipush (R0, R1, R2 , R3 , R4 , R5 , R6);
+    R1 = 1;                                  //function number for the get free page
+    call MOD_2;                              //this is the memory manager module
+    [PTBR + 16] = R0;                         //use page as the stack
+    [PTBR + 17] = "0110";
+    multipop (R0, R1, R2 , R3 , R4 , R5 , R6);
+
+    multipush (R0, R1, R2 , R3 , R4 , R5 , R6);
+    R1 = 1;                                  //function number for the get free page
+    call MOD_2;                              //this is the memory manager module
+    [PTBR + 18] = R0;                         //use page as the stack
+    [PTBR + 19] = "0110";
+    multipop (R0, R1, R2 , R3 , R4 , R5 , R6);
+    
+
+    //this is for the code
+    R6 = INODE_TABLE + 16 * inode_index;              //inode table entry
+    R7 = 0;                                           //going to serve as the counter 
+
+    if ([R6 + 8] != -1) then
+        multipush (R0 , R1 , R2 , R3, R4 , R5 , R6 , R7);
+        R1 = 5;                                 //function number for the get code block
+        R2 = [R6 + 8];                          //this is the block for the code
+        call MOD_2;                             //memory manager module
+        [PTBR + 8] = R0;
+        [PTBR + 9] = "0100";
+        multipop (R0 , R1 , R2 , R3, R4 , R5 , R6 , R7);
+    endif; 
+
+
+    R6 = INODE_TABLE + 16 * inode_index;
+    R7 = 1;
+    while (R7 < 4) do
+        [PTBR + 8 + 2 * R7] = -1;                         //use page as the code
+        [PTBR + 9 + 2 * R7] = "0000";                     //this is for invalidating the pages
+        R7 = R7 + 1;
+    endwhile;    
+
+//updating the per process page table ; last 16 words of the per process table is initialized to -1
+    alias entry R8;
+    entry = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] + 1) * 512 - 1;
+    alias counter R9;
+    counter = 0;
+    while (counter < 16) do
+        [entry] = -1;
+        counter = counter + 1;
+        entry = entry -1;
+    endwhile;
+
+//initialising the disk map table entries
+    R6 = INODE_TABLE + 16 * inode_index;
+    R7 = 1;
+    alias disk_table R10;
+    disk_table = [DISK_MAP_TABLE ] + ([SYSTEM_STATUS_TABLE + 1] * 10);
+    [disk_table + 4] =  [R6 + 8];
+
+    //invalidating for the rest
+    [disk_table + 0] = -1;
+    [disk_table + 1] = -1;
+    [disk_table + 2] = -1;
+    [disk_table + 3] = -1;
+    [disk_table + 5] = [R6 + 9];
+    [disk_table + 6] = [R6 + 10];
+    [disk_table + 7] = [R6 + 11];
+    [disk_table + 8] = -1;
+    [disk_table + 9] = -1;
+
+
+
+
+
+//storing the entry point
+//stack to the entry point (code)
+    [[PTBR + 16] * 512] = [[PTBR + 8] * 512 + 1];
+
+
+//last step
+    SP = 8 * 512;
+    //change the value of the mode flag
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+    ireturn;

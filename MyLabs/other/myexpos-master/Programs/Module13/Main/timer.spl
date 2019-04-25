@@ -1,0 +1,50 @@
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = SP;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+backup;
+print "Timer";
+
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+
+alias process_table_entry R1;
+process_table_entry = PROCESS_TABLE + currentPID * 16;
+
+[process_table_entry + 12] = SP % 512;
+[process_table_entry + 14] = PTBR;
+[process_table_entry + 15] = PTLR;
+[process_table_entry + 4] = READY;
+
+
+
+alias newPID R2;
+if(currentPID == 0) then
+    newPID = 1;
+else    newPID = 0;
+endif;
+
+
+
+alias new_process_table R3;
+new_process_table = PROCESS_TABLE + newPID * 16;
+
+SP =  [new_process_table + 11] * 512 + [new_process_table + 12];
+PTBR = [new_process_table + 14];
+PTLR = [new_process_table + 15];
+[SYSTEM_STATUS_TABLE + 1] = newPID;
+
+
+
+if([new_process_table + 4] == CREATED) then
+    [new_process_table + 4] = RUNNING;
+    SP = [new_process_table + 13];
+    ireturn;
+endif;
+
+
+
+[new_process_table + 4] = RUNNING;
+restore;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+breakpoint;
+ireturn;

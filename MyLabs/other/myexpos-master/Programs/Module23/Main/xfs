@@ -1,0 +1,32 @@
+#!/bin/bash
+./xfs-interface fdisk
+./xfs-interface load --exec ../Programs/Module23/Main/even.xsm
+./xfs-interface load --exec ../Programs/Module23/Main/odd.xsm
+./xfs-interface load --init ../Programs/Module23/Main/init.xsm
+./xfs-interface load --idle ../Programs/Module23/Main/idle.xsm
+./xfs-interface load --int=10 ../Programs/Module23/Main/int10.xsm
+./xfs-interface load --exhandler ../Programs/Module23/Main/exe_handler.xsm
+./xfs-interface load --os ../Programs/Module23/Main/os_startup.xsm
+./xfs-interface load --library ../expl/library.lib
+./xfs-interface load --int=timer ../Programs/Module23/Main/timer.xsm
+./xfs-interface load --int=7 ../Programs/Module23/Main/int7.xsm
+./xfs-interface load --module 7 ../Programs/Module23/Main/boot.xsm
+./xfs-interface load --module 5 ../Programs/Module23/Main/scheduler.xsm
+./xfs-interface load --module 0 ../Programs/Module23/Main/module_0.xsm
+./xfs-interface load --module 4 ../Programs/Module23/Main/module_4.xsm
+./xfs-interface load --int=6 ../Programs/Module23/Main/int6.xsm
+./xfs-interface load --int=console ../Programs/Module23/Main/console.xsm
+./xfs-interface load --int=9 ../Programs/Module23/Main/int9.xsm
+./xfs-interface load --int=8 ../Programs/Module23/Main/int8.xsm
+./xfs-interface load --module 1 ../Programs/Module23/Main/module_1.xsm
+./xfs-interface load --module 2 ../Programs/Module23/Main/module_2.xsm
+./xfs-interface load --int=disk ../Programs/Module23/Main/diskint.xsm
+./xfs-interface load --int=11 ../Programs/Module23/Main/int11.xsm
+./xfs-interface load --int=15 ../Programs/Module23/Main/int15.xsm
+./xfs-interface load --int=13 ../Programs/Module23/Main/int13.xsm
+./xfs-interface load --int=14 ../Programs/Module23/Main/int14.xsm
+./xfs-interface load --int=4 ../Programs/Module23/Main/int4.xsm
+
+./xfs-interface dump --inodeusertable
+mv inodeusertable.txt ../Programs/Module23/Main/inodeusertable.txt
+

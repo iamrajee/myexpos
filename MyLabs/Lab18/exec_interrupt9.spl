@@ -1,0 +1,173 @@
+//=============EXEC INTERRUPT HANDLER=================
+//print "exec";
+alias userSP R8;
+userSP = SP;
+
+//Save SP in UPTR(entry number 13 in process table)
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 13] = SP;
+
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 11]*512 + [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 12];
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 9;
+
+//Get the argument (name of the file) from user stack
+alias file_name R1;
+file_name = [[PTBR + 2 * ((userSP - 4)/512)]*512 + (userSP - 4) % 512];
+
+alias i R2;
+alias temp_file_name R3;
+alias inode_index R4;
+i = 0;
+while(i < MAX_FILE_NUM) do
+	temp_file_name = [(INODE_TABLE + 16*i) + 1];
+	if(temp_file_name == file_name) then
+		inode_index = i;
+		break;
+	endif;
+	i = i+1;
+endwhile;
+
+if(i == MAX_FILE_NUM) then
+	alias retVal R5;
+	retVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+    [retVal] = -1;
+else 
+	//=========== CALLING EXIT PROCESS FUNCTION ============
+	multipush(R8, R1, R2, R3, R4, R5);
+	alias functionNum R1;
+    alias PID R2;
+    functionNum = 3;
+    PID = [SYSTEM_STATUS_TABLE + 1];
+    call MOD_1;
+	multipop(R8, R1, R2, R3, R4, R5);
+	//=======================================================
+	alias user_area_page_num R6;
+	user_area_page_num = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 11];
+
+	// Reclaim the same page by incrementing the memory free list entry of user area page and decrementing the 
+	// MEM_FREE_COUNT field in the system status table
+	[MEMORY_FREE_LIST + user_area_page_num] = [MEMORY_FREE_LIST + user_area_page_num] + 1;
+	[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+	// set the SP to the start of the user area page to intialize the kernel stack of the new process
+	SP = (user_area_page_num * 512) -1;
+
+	// Update the STATE field to RUNNING and store inode index obtained above in the inode index field in the
+	// process table.
+	[(PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1]) + 4] = RUNNING;
+	[(PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1]) + 7] = inode_index;
+
+	// Allocate new pages and set the page table entries for the new process
+	PTBR = [(PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1]) + 14];
+
+	// put library module into logical page 0 and 1
+	[PTBR+0] = 63;
+	[PTBR+1] = "0100";
+	[PTBR+2] = 64;
+	[PTBR+3] = "0100";
+	//============ allocating pages for stack ===============
+	multipush(R8, R1, R2, R3, R4, R5, R6, R7);
+    functionNum = 1;
+    call MOD_2;
+    [PTBR + 16] = R0;
+    [PTBR + 17] = "0110";
+
+    functionNum = 1;
+    call MOD_2;
+    [PTBR + 18] = R0;
+    [PTBR + 19] = "0110";
+	//=========================================================
+	//============ allocating pages for heap ===============
+    functionNum = 1;
+    call MOD_2;
+    [PTBR + 4] = R0;
+    [PTBR + 5] = "0110";
+
+    functionNum = 1;
+    call MOD_2;
+    [PTBR + 6] = R0;
+    [PTBR + 7] = "0110";
+	//=========================================================
+	//=============== allocate the code blocks ===================
+	inode_index = [(PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1]) + 7];
+	if([(INODE_TABLE + 16*inode_index) + 8] != -1) then
+	    functionNum = 1;
+	    call MOD_2;
+	    [PTBR + 8] = R0;
+	    [PTBR + 9] = "0100";
+
+	    functionNum = 2;
+		R2 = [SYSTEM_STATUS_TABLE + 1];
+	    R3 = [PTBR + 8];
+		inode_index = [(PROCESS_TABLE + 16*R2) + 7];
+	    R4 = [(INODE_TABLE + 16*inode_index) + 8];
+	    call MOD_4;
+	endif;
+	inode_index = [(PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1]) + 7];
+	if([(INODE_TABLE + 16*inode_index) + 9] != -1) then
+	    functionNum = 1;
+	  	call MOD_2;
+	    [PTBR + 10] = R0;
+	    [PTBR + 11] = "0100";
+
+	    functionNum = 2;
+		R2 = [SYSTEM_STATUS_TABLE + 1];
+	    R3 = [PTBR + 10];
+		inode_index = [(PROCESS_TABLE + 16*R2) + 7];
+	    R4 = [(INODE_TABLE + 16*inode_index) + 9];
+	    call MOD_4;
+	endif;
+	//[PTBR + 10] = -1;
+	//[PTBR + 11] = "0000";
+	//[PTBR + 12] = -1;
+	//[PTBR + 13] = "0000";
+	//[PTBR + 14] = -1;
+    //[PTBR + 15] = "0000";
+	//print "disk..done";
+	// commenting below code otherwise "Code exceeds 2 block"
+	inode_index = [(PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1]) + 7];
+	if([(INODE_TABLE + 16*inode_index) + 10] != -1) then
+	   functionNum = 1;
+	   call MOD_2;
+	   [PTBR + 12] = R0;
+	   [PTBR + 13] = "0100";
+
+	   functionNum = 2;
+	   R2 = [SYSTEM_STATUS_TABLE + 1];
+	   R3 = [PTBR + 12];
+	   inode_index = [(PROCESS_TABLE + 16*R2) + 7];
+	   R4 = [(INODE_TABLE + 16*inode_index) + 10];
+	   call MOD_4;
+	endif;
+	inode_index = [(PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1]) + 7];
+	if([(INODE_TABLE + 16*inode_index) + 11] != -1) then
+	  	functionNum = 1;
+	    call MOD_2;
+	    [PTBR + 14] = R0;
+	    [PTBR + 15] = "0100";
+
+	    functionNum = 1;
+		R2 = [SYSTEM_STATUS_TABLE + 1];
+	    R3 = [PTBR + 14];
+		inode_index = [(PROCESS_TABLE + 16*R2) + 7];
+	    R4 = [(INODE_TABLE + 16*inode_index) + 11];
+	    call MOD_4;
+	endif;
+	multipop(R8, R1, R2, R3, R4, R5, R6, R7);
+	//=========================================================
+
+	alias j R9;
+	i = user_area_page_num * 512 + (512 - 16);
+	j = 0;
+	while(j < 16) do
+		[i] = -1;
+		j = j + 1;
+		i = i + 1;
+	endwhile;
+
+	[(PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1]) + 13] = 8*512;
+	[[PTBR + 16]*512] = [[PTBR + 8]*512 + 1];
+endif;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+ireturn;

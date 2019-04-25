@@ -1,0 +1,210 @@
+// int 4
+// The system calls Create and Delete
+
+alias retVal R4;
+alias syscall R5;
+alias userSP R6;
+alias pid R7;
+alias processTable R8;
+
+pid = [SYSTEM_STATUS_TABLE + 1];
+userSP = SP;
+processTable = PROCESS_TABLE + 16 * pid;
+retVal = [PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512;
+
+[processTable + 13] = SP;
+SP = [processTable + 11] * 512 - 1;
+
+// At the beginning of interrupt routine 13, extract the system call number from the user stack and switch to the kernel stack.
+syscall = [[PTBR + 2 * ((userSP - 5) / 512)] * 512 + (userSP - 5) % 512];
+
+// Create system call
+// Arguments: Filename (String), Permission (0 - exclusive/1 - open-access) 
+if (syscall == 1) then
+
+	// Set the MODE_FLAG in the process table entry to 1, 
+	[processTable + 9] = 1;
+
+	alias filename R9;
+	alias permission R10;
+
+	filename = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];
+	permission = [[PTBR + 2 * ((userSP - 3) / 512)] * 512 + (userSP - 3) % 512];
+
+	alias iter R11;
+	alias inode_index R12;
+	inode_index = -1;
+	iter = 0;
+	while (iter < MAX_FILE_NUM) do
+		// If the file is present in the system, return 0.   /* Check the Inode Table  */ 
+		if ([INODE_TABLE + 16 * iter + 1] == filename) then
+			[retVal] = 0;
+			[processTable + 9] = 0;
+			SP = [processTable + 13];
+			ireturn;
+		endif;
+		// Find the index of a free entry in the Inode Table. 
+		if ([INODE_TABLE + 16 * iter + 1] == -1 && inode_index == -1) then
+			inode_index = iter;
+		endif;
+		iter = iter + 1;
+	endwhile;
+
+	if (inode_index == -1) then
+		// If no free entry found, return -1.   /* Maximum number of files reached */
+		[retVal] = 0;
+		[processTable + 9] = 0;
+		SP = [processTable + 13];
+		ireturn;
+	endif;
+
+	alias inodeEntry R13;
+	inodeEntry = INODE_TABLE + 16 * inode_index;
+	// In the Inode Table entry found above, set FILE NAME to the given file name, FILE SIZE to 0 and FILE TYPE to DATA.
+	[inodeEntry + 1] = filename;
+	[inodeEntry + 2] = 0;
+	[inodeEntry + 0] = DATA;
+	// In the Inode Table entry, set the block numbers to -1.  /* No disk blocks are allocated to the file */
+	[inodeEntry + 8] = -1;
+	[inodeEntry + 9] = -1;
+	[inodeEntry + 10] = -1;
+	[inodeEntry + 11] = -1;
+	// Set the USER ID to the USERID of the process /* See the process table for user id */
+	[inodeEntry + 3] = [processTable + 3];
+	// Set the PERMISSION to the permission supplied as input.
+	[inodeEntry + 4] = permission;
+
+	alias rootEntry R14;
+	rootEntry = ROOT_FILE + 8 * inode_index;
+	// In the Root file entry corresponding to the Inode Table index, 
+	// set the FILE NAME, FILE SIZE, FILE TYPE, USERNAME and PERMISSION fields.
+	[rootEntry + 0] = filename;
+	[rootEntry + 1] =	0;
+	[rootEntry + 2] = DATA;
+	[rootEntry + 3] = [processTable + 3];
+	[rootEntry + 4] = permission;
+
+	// Return from the system call with 0.  /* success */
+	[retVal] = 0;
+endif;
+
+// Delete System call
+// Arguments: Filename (String) 
+if (syscall == 4) then
+	// Set the MODE_FLAG in the process table entry to 4, 
+	[processTable + 9] = 4;
+	
+	alias filename R9;
+	filename = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];
+
+	alias iter R11;
+	alias inode_index R12;
+	inode_index = -1;
+	iter = 0;
+	// Find the index of the file in the Inode Table.
+	while (iter < MAX_FILE_NUM) do
+		// If the file is present in the system, return 0.   /* Check the Inode Table  */ 
+		if ([INODE_TABLE + 16 * iter + 1] == filename) then
+			inode_index = iter;
+			break;
+		endif;
+		iter = iter + 1;
+	endwhile;
+
+	// If file is not present in the Inode Table, return 0. 
+	if (inode_index == -1) then
+		[retVal] = 0;
+		[processTable + 9] = 0;
+		SP = [processTable + 13];
+		ireturn;
+	endif;
+
+	// If the file is not a DATA file, return -1.
+	if ([INODE_TABLE + 16 * inode_index] != DATA) then
+		[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = -1;
+		[processTable + 9] = 0;
+		SP = [processTable + 13];
+		ireturn;
+	endif;
+
+	// If the exclusive permission is set
+	if ([INODE_TABLE + 16 * inode_index + 4] == 0) then
+		// 	if the current user is not root and the current user doesnot own the file
+		//		return -1. 
+		if ([processTable + 3] != 1 && [processTable + 3] != [INODE_TABLE + 16 * inode_index+ 3]) then
+			[retVal] = -1;
+			[processTable + 9] = 0;
+			SP = [processTable + 13];
+			ireturn;
+		endif;
+	endif;
+
+	// Acquire a lock on the file by calling the acquire_inode() function in the Resource Manager module.
+	multipush(R5, R6, R7, R8, R9, R10, R11, R12);
+	R1 = 4;
+	R2 = inode_index;
+	R3 = pid;
+	call MOD_0;
+	multipop(R5, R6, R7, R8, R9, R10, R11, R12);
+
+	// Check if the the file open count is -1 in the  File Status Table . If not, release the lock and return -2.    
+	// /* File is open, cannot be deleted */
+	if ([FILE_STATUS_TABLE + 4 * inode_index + 1] != -1) then
+		multipush(R5, R6, R7, R8, R9, R10, R11, R12);
+		R1 = 5;
+		R2 = inode_index;
+		R3 = pid;
+		call MOD_0;
+		multipop(R5, R6, R7, R8, R9, R10, R11, R12);
+		[retVal] = -2;
+		[processTable + 9] = 0;
+		SP = [processTable + 13];
+		ireturn;
+	endif;
+
+
+	// For each disk block allocated to the file, do { 	/* Check Inode Table */
+	iter = 0;
+	while (iter < 4) do
+		alias block R10;
+		// 	If the disk block is loaded into a buffer, and the DIRTY BIT is set, reset the dirty bit. 
+		block = [INODE_TABLE + 16 * inode_index + 8 + iter];
+		if (block == -1) then
+			break;
+		endif;
+		if ([BUFFER_TABLE + (block % 4) * 4] == block) then
+			[BUFFER_TABLE + (block % 4) * 4 + 1] = 0;
+		endif;
+		// Call the release_block() function in the Memory Manager module to free the disk block.        
+		multipush(R5, R6, R7, R8, R9, R10, R11, R12);
+		R1 = 4;
+		R2 = block;
+		R3 = pid;
+		call MOD_2;
+		multipop(R5, R6, R7, R8, R9, R10, R11, R12);
+		iter = iter + 1;
+	endwhile;
+
+	// Invalidate (set to -1) the Inode Table of the file.
+	[INODE_TABLE + 16 * inode_index + 1] = -1;
+
+	// Update the Root file by invalidating the entry for the file.
+	[ROOT_FILE + 8 * inode_index] = -1;
+
+	// Release the lock on the file by calling the release_inode() function in the Resource Manager module.
+	multipush(R5, R6, R7, R8, R9, R10, R11, R12);
+	R1 = 5;
+	R2 = inode_index;
+	R3 = pid;
+	call MOD_0;
+	multipop(R5, R6, R7, R8, R9, R10, R11, R12);
+
+	// Return from the system call with 0.  /* success */
+	[retVal] = 0;
+	
+endif;
+
+[processTable + 9] = 0;
+SP = [processTable + 13];
+
+ireturn;

@@ -1,0 +1,1351 @@
+XSM machine's disk contains 512 blocks, each capable of storing 512 words.
+
+Each data / executable file can span across at most 4 data blocks.
+
+The inode table is sotred in disk blocks 3 and 4.
+
+*************************************************************************************8
+EXPFS
+
+	The number of words in a block is hardware dependent.
+
+	single directory called the root. The root is also treated conceptually as a file.
+	Associated with each expFS file there are 3 attributes - name, size and type, each attribute 1 word long.
+	The size of the file will be the total number of words stored in the file.
+	(The max size of a file is OS dependent)
+
+	In extended expOS, a file has 2 additional attributes, username and permission.
+
+	There are 3 types of expFS files - the root, data files and executable files. Each file in expFS has an entry in 
+	the root called its root entry.
+
+	For each file stored in expFS, the root file stores 5 words of information 
+		file name
+		file-size
+		file-type
+		user name
+		permission
+
+	This 5 tuple is called the root entry for the file.
+	The first root entry is for the root itself.
+
+	The operations on the root file are Open, Close, Read, and Seek.
+
+	The owner of the root file is set to kernel (userid = 0) and permission set to exclusive (0) during file
+	system formatting.
+
+	The maximum number of words permissible in a file is defined by the constant MAX_FILE_SIZE.
+	The Create system call automatically sets the file type filed in the root entry for any file created through the 
+	create system call to DATA.
+
+	expOS allows an application program to perform the following operations on data files: Create, Delete, Open, 
+	Close, Read, Write, Seek.
+
+	If a data file is externally loaded into the file system, the owner field is set to root (value = 1) and the 
+	access permission is set to open access (value = 1)
+
+	expFS specification does not allow executable files to be created by application programs.
+
+	In Multiuser implementation of expOS, the access permission field for executable files in not used (value = -1).
+	By default, the owner of all executable files is set to 0(kernel).
+
+	OS imposes certain structure on these files (called the executable file format).
+
+	An OS implementation on a particular machine specifies an application binary interface (ABI). 
+
+	A HLL implementation for an OS comes with an Application Programmers Interface (API) for the OS system calls. 
+	API describes the library functions which the application programs must invoke for each OS call. 
+
+	The executable file format recognized by expOS is called the XEXE format. In this format, an executable file is 
+	divided into 2 sections. The first section is called header and the second section called the code section.
+
+	The header section contains information like the size of the text and data segments in the file, the space to be 
+	allocated for stack and heap areas. This info is used by the OS loader to map the file into a virtual address 
+	space and create a process in memory for executing the program.
+
+###############################################################################################
+
+************************************************************************************************
+
+MACHINE ORGANISATION
+
+	Processor
+		The processor consists of a set of registers and ports.
+		Each register / port can store a string.
+
+		2 contiguous memory words are necessary to store each XSM instruction. 
+		privileged execution mode vs unprivileged execution mode.
+
+		A program executing in the unprivileged mode has access only to a restricted machine model called  the XSM 
+		virtual machine.
+
+		Virtual machine instruction set and virtual machine memory model.
+		XSM implements the virtual machine model using its paging hardware.
+
+	XSM Machine Registers / Ports
+		29 registers, each capable of storing a word.
+		4 ports, STDIN, STDOUT, 2 unused.
+
+		R0 - R19  			General Purpose User Registers     										Unprivileged
+							(R16 - R19 are reserved for SPL compiler)
+		BP, SP, IP 			Base, Stack and Instruction Pointers									Unprivileged
+		PTBR, PTLR			Page Table registers 													Privileged
+		EIP, EC, EPN, EMA   Exception Status registers 												Privileged
+		P0-P3				P0 - Input port, P1 - Output ports 										Privileged	
+								P2, P3 unused
+
+		The registers R12 - R15 with caution as they may be used by the OS.
+
+	Memory 
+		The memory is organized as a sequence of pages. Each page is a sequence of 512 words.
+		The total number of memory pages available is 128.
+		Thus total 512 * 128 = 65536 words of storage.
+		The memory is word addressable.
+
+		0 			ROM Code
+		1   		Page for loading BOOT block
+		2 -3		Exception handler (INT 0)
+		4 - 5		Timer Interrupt (INT 1)
+		6 - 7 		Disk Interrupt (INT 2)
+		8 - 9		Console Interrupt (INT 3)
+		10 - 11 	INT 4(Create, Delete)
+		12 - 13		INT 5(Seek, Open, Close)
+		14 - 15		INT 6(Read)
+		16 - 17		INT 7(Write)
+		18 - 19		INT 8(Fork)
+		20 - 21		INT 9 (Exec)
+		22 - 23  	INT 10 (Exit)
+		24 - 25		INT 11 (Getpid, Getppid, Wait, Signal)
+		26 - 27 	INT 12 (Logout)
+		28 - 29		INT 14 (SemLock, SemUnlock)
+		32 - 33 	INT 15 (Shutdown)
+		34 - 35		INT 16 (Newusr, Remusr, Setpwd, Getuname, Getuid)
+		36 - 37 	INT 18 (Test0, Test1, Test2, Test3)
+		40 - 127 	Unreserved Pages
+
+		The last 19 words of page 0 are reserved for an interrupt vector table with 19 entries. 
+		The kth entry contains the page number where the handler for the kth interrupt service routine begins.
+		Upon encountering the INT k instruction during machine execution, the machine transfers control to the
+			beginning of the page indicated in the corresponding vector table entry.
+		The version of XSM machine described here assumes that the vector table entries are hard coded in ROM code
+			acc to the above table.
+
+	DISK
+		512 * 512 = 262144 words of secondary storage.
+		The disk is block accessible and not word accessible. 
+		The block 0 of the disk is reserved for book block and will be loaded into the memory at the time of system 
+			startup.
+		The machine instruction set includes four special disk access macro routines (load, loadi and store) for disk -
+			block to memory - page data transfer and back. These are actually macros whose internal details are hidden 
+			from programs. These macros are accessible only when the machine is executing in privileged mode.
+	Timer
+		Timer is a device that can be set to interrupt the processor each time after the machine executes XSM_TICKS
+			instructions in unprivileged mode (If the XSM_TICKS numbered instruction changes mode from unprivileged to 
+			privileged, then the interrupt occurs before executing the next instruction after the machine is back to 
+			unprivileged mode.)
+		The value of XSM_TICKS must be set externally. Upon receipt of the interrupt, the machine switches to the 
+			privileged mode and executes the timer interrupt service routine.
+	Disk Controller
+		Disk Controller is the device that controls the data transfer between the memory and the disk. If the load macro
+			or store macro is used for disk - memory transer, then upon subsequent completion of XSM_DTIME instructions
+			in the unprivileged mode, the disk controller interrupts the machine.(If the XSM_DTIME numbered instruction 
+			changes mode from unprivileged to privileged, then the interrupt occurs before executing the next instruction
+			fater the machine is back to unprivileged mode).
+		Upon receipt of the interrupt, the machine executes disk interrupt service routine. If the loadi macro is used for
+			disk - memory transfer, the machine will wait for the block transfer and will continue the execution of next
+			instruction only after the block transfer is complete.
+	
+	Console / Terminal
+		The console device is a single device that handles the std IO
+		The OUT instruction displays the contents of port P1 onto the Terminal
+		If the XSM machine executes an IN instruction, the console device waits for the user to enter a word into the console.
+		When a word is entered, the console device transfers the word to the port P0 and raises the console interrupt.
+		While the console waits for the user input, the XSM machine proceeds the execution of the next instruction.
+
+		If the XS< machine executes the INI instruction (which can be used only in debug mode), the console device as well
+		as the XSM machine waits for the user input and the data entered is immediately transferred to the port P0, only after
+		which the next instruction is executed. No interrupt is generated by the INI instruction.
+
+	BOOT ROM AND BOOT BLOCK 
+		When XSM machine starts up, program execution starts at the first word of the first page (Page 0) of memory.
+		There is a pre - loaded ROM code in Page 0 called the bootstrap loader. This code loads the 1st disk block (block 0)
+		called the boot block from the disk to page 1 of memory and then transfers control (using the jump instruction) to the 
+		1st instruction in page 1. 
+
+		The XSM machine has an interrupt vector table that maps each interrupt number to a corresponding address (of the 
+		interrupt handler). The vector table is stored starting from physical address 492 of memory.
+
+		Boot ROM code contains just 2 instructions (to load the Boot Block to page 1 and then jump to page 1 which now contains 
+		Boot Block). So, after the execution of Boot ROM, control is transferred to 1st instruction in page 1.
+
+#######################################################################################################
+
+********************************************************************************************************
+PAGING HARDWARE
+
+	Page Table
+		Every user mode program has an associated page table which maps its virtual address space to the machine's 
+			physical address space.
+		Base address of the Page Table must be stored in the Page Table Base Register (PTBR) and the number of 
+			entries in this Page Table must be stored in the Page Table Length Register (PTLR).
+		The page tables must be set up in the privileged mode.
+		Page 0  -   Physical Page #0
+					Auxiliary Info 0
+		Page 1  -   Physical Page #1
+					Auxiliary Info 1
+					....
+
+		Each Page Table stores the physical page number corresponding to all the logical pages of a user mode 
+			program.
+
+		Each page table entry for a logical page is of 2 words. The 1st words must be set to the physical page number
+			in the memory where the logical page is located. In this case, the page table entry is said to be valid.
+			If the page has not been loaded into the memory, the page table entry is said to be invalid.
+		The 2nd word in a page table entry stores a sequence of flag bits storing information whether the page 
+			valid or not
+			is read only / write only
+			has been referenced in the user mode after being set to valid and
+			has been modified in the user mode after being set to valid (dirty)
+
+			0	1	2	3	4	
+			R   V   W   D   \0
+
+		Reference Bit (R):
+			This bit must be initialised to 0 (unreferenced) when a page table entry is intitially made valid.
+			On a page access, this bit is set to 1 by the machine hardware.
+		Valid / Invalid Bit (V):
+			This bit indicates whether the entry of the page table is valid or invalid.
+			must be set to 1 if the first word of this entry corresponds to a valid physical page number.
+			set by the application, typically the OS.
+			If memory access is made to a page whose page table entry is invalid, the machine transfers control to 
+				the Exception Handler routine.
+		Write Permission Bit (W):
+			This bit must be set to 1 if the user mode program is permitted to write into the page, otherwise it
+				must be set to 0. If .. tries to modify a page with permission set to 0, the machine transfers 
+				control to the Exception Handler routine.
+		Dirty Bit(D):
+			This bit is set to 1 by the machine if an instruction modifies the contents of the page.
+
+	Address Translation Scheme
+		Logical address / 512 gives the logical page number which is the index of the page table entry for the 
+			logical page in the page table.
+		Location of page table entry = PTBR + 2 X (Logical Adress / 512)
+		The value stored in the 1st word in the page table entry corresponds to the physical page number.
+		Physical Page Number = [Location of page table entry]
+		offset = Logical Address % 512
+		Physical Address = Physical Page Number X 512 + offset
+
+		When valid bit is set to 0, in the page table, the page is not physically present in the memory. Hence
+			the hardware will generate a page fault exception with the exception flag registers set as the following:
+			EIP : 40 (Virtual IP address)
+			EPN : 02 (exception page number)
+			EC : 0 (exception cause - page fault)
+			EMA : 1032
+
+#######################################################################################################
+
+*******************************************************************************************************
+XSM VIRTUAL MACHINE MODEL
+
+	In unprivileged mode
+	Registers 
+		R0 - R19 
+		BP (Base pointer), SP, IP
+	Address Space
+		Virtual address space of a user mode program is a contiguous address space starting from 0 to 512 * PTLR - 1
+	Interrupts
+		Software Interrupts (traps) are the mechanisms by which user mode programs can transfer control to the code
+			that runs in the kernel mode.
+		Sofware interrupt service routines typically contain the OS code for various system calls.
+		A total of 15 software interrupts are available to a user mode program (Interrupt 4 - Interrupt 18).
+	Instruction Set
+		Every instruction in XSM is 2 words long.
+		Data Transfer Instructions
+			MOV
+		Arithmetic Instructions
+			ADD, SUB, MUL, DIV, MOD, INR and DCR
+		Logical Instructions
+			Strings can also be compared according to lexicographic ordering of ASCII.
+			GT, LT, EQ, NE, GE, and LE.
+		Branching Instructions
+			changing the value of the IP to the word address of the target instruction specified by target_address.
+			JZ, JNZ, JMP
+		Stack instructions
+			PUSH, POP
+		Subroutine instructions
+			CALL, RET
+		Debug instructions
+			BRKP
+		Software interrupt
+			Generates an interrupt to the kernel with n (4 to 18) as a parameter.
+			The instruction for triggering interrupt is INT n, where n is the interrupt routine number.
+
+########################################################################################################
+
+A UNIX file named "disk.xfs" simulates the hard disk of the XSM machine.
+
+fdisk command converts the raw disk into the filesystem format recognized by the expOS operating system. It initialises
+the disk data structures such as disk free list, inode table, user table and root file.
+
+The Disk Free List in XFS is a data structure  which keeps track of used and unused blocks in the disk.
+An unused block is indicated by 0 and a used block is indicated by 1.
+
+# fdisk
+# df
+# load --data $HOME/myexpos/sample.dat
+# copy 3 4 $HOME/myexpos/inode_table.txt
+
+The Inode table occupies only the first 960 words (60 entries, each of size 16 words) in the disk blocks 3 and 4.
+User table occupies the next 32 words ( 16 entries, each of size 2 words) and the last 32 words are reserved for future
+	use.
+
+# dump --inodeusertable
+# export sample.dat $HOME/myexpos/data.txt
+
+
+								STAGE 3
+
+XSM Instruction Execution Cycle
+	Boot - up
+		All registers will be set to value zero.
+		1. Transfer the contents of 2 memory location starting at the address stored in IP register to the CPU. The XSM
+			machine treats the contents read like a machine instruction. This action is called the instruction fetch cycle.
+		2. The next step is the execute cycle where the instruction fetched in Step 1 is executed by the machine. 
+		3. The final step is to set the instruction pointer to the next instruction to be executed. Since each XSM instructions
+			is 2 words, IP will normally be incremented by 2. There are exceptions to this rule. JMP, Just powered up the first
+			instruction will be fetched from memory locations 0 and 1. The XSM machine has a boot ROM containing just 2 ins:
+			0 		LOADI 1, 0		Load contents of disk block 0 to memory page 1.
+			2 		JMP 512			Change IP value to 512
+		
+		The bootstrap code is hard code into a boot ROM so that the memory contents are not lost even after machine shutdown.
+		This is necessary because when the machine is powered on, there must be some meaningful instruction at address 0 from 
+		where the first fetch takes place.
+
+		Boot ROM code contains just 2 instructions (to load the Boot Block to page 1 and then jump to page 1) which now contains
+		Boot Block ). So, after the execution of Boot ROM, control is transferred to 1st instruction in page 1.
+
+		The PUSH instruction results in the following actions: 
+		1. Contents of SP gets incremented by 1.
+		2. The data specified by the PUSH instruction is transferred to the loaction pointed to by SP.
+		2. IP gets incremented by 2 to point to the next instruction.
+
+		The POP instruction is a reverse operation to PUSH. The contents of the memory address pointed to by SP will be retrieved
+		to a register specified, and SP is decremented.
+
+		The CALL instruction results in the following:
+		1. Increment SP by one.
+		2. Transfer contents of IP register + 2 to the memory address pointed to by SP.
+		3. Set IP to the value of register/ constant value specified in the CALL instruction.
+
+		The RET instruction reverses the actions of a CALL instruction. The contents of address pointed to by SP register is 
+		copied to the IP register, and SP is decremented. Since Ip is modified the next ins is fetched from the newly set value.
+
+		IRET 
+		This instruction can be only executed in privileged mode, but IRET is the only XSM instruction that results in the 
+		XSM machine to switch from the privileged mode to unprivileged mode. After an ins fetch, if the XSM encounters the IRET
+		ins, the following actions take place:
+		1. Enable paging and change from privileged mode to unprivileged mode.
+		2. Execute the RET instruction in the unprivileged mode.
+
+		After the IRET instruction, the machine continues fetch - execute cycle, but in the unprivileged mode.
+		The change of machine mode from privileged to unprivileged happens before the actual fetch - execution cycle.
+
+OS Startup Code is loaded from disk block 0 to memory page 1 by the ROM Code on machine startup and is then executed.
+The XSM simulator is an assembly language interpreter for XSM.
+
+alias counter R0;
+counter = 0;
+while (counter <= 20) do
+	if (counter % 2 != 0) then
+		print counter;
+	endif;
+	counter = counter + 1;
+endwhile;
+
+$ reg
+$ mem 1
+This will write the contents of memory page 1 to the file mem inside the xsm folder.
+s - next instruction.
+c - continue till next BRKP instruction.
+
+XSM UNPRIVILEGED MODE EXECUTION
+	Address Translation	
+		The translation of a logical address to physical address is done completely by the machine's paging hardware.
+		1. Given a logical address - find the logical page number and offset specified by the address.
+		2. Search the page table to find the physical page number from the logical page number.
+		3. Multiply physical page number by page size to find the physical page address.
+		4. Physical address = physical page address + offset.
+
+		Since PTBR register can be accessed only in privileged mode, code must have set the PTBR register to store
+		the address of the page table before entering unprivileged mode execution. 
+		Must write privileged code to set appropriate values in the page table before executing an IRET instruction to 
+		switch the machine to unprivileged mode.
+
+		The min value possible is 0 and the max value possible is 63.
+
+	PER - PROCESS PAGE Table
+		The Per-Process Page TAble contains information regarding the physical location of the pages of a process.
+		Each valid entry of a page table stores the physical page number corresponding to each logical page assoc.
+		with the process. 
+		The logical page number can vary from 0 to MAX_PROC_PAGES - 1 for each process.
+		Therefore, each process has MAX_NUM_PAGES entries in the page table.
+		PTLR is set to 10.
+
+		Reference bit - When is accessed by a running process ,the corresponding reference bit is set to 1 by the machine
+			hardware.
+		Valid bit - set to 1 by the OS when the physical page number field of a page table entry is valid.
+			It is set to 0 if the entry is invalid.
+		Write bit - This bit is set to 1 by the OS if the page can be written and is set to 0 otherwise.
+		The fourth bit is the dirty bit which is not used by the expOS.
+
+		In the implementation, if a page is not loaded to the memory, but is stored in a disk block, the disk block number
+		corresponding to the physical page number is stored in the disk map table of the process.
+
+		The Page Table is present in page 58 of the memory, and the SPL constant PAGE_TABLE_BASE points to the starting 
+		address of the table. PAGE_TABLE_BASE + PID * 20 gives the beginning address of page table entry corresponding to 
+		the process with identifier PID.
+
+	The steps before running an application program in unprivileged mode
+	1. Set the PTLR register to define the address space maximum limit.
+	2. Set up a valid page table in memory and the PTBR register to the beginning address of the page table of the 
+		particular application.
+	3. Set up the application's stack. Set SP to point to the top of the stack.
+	4. Compute the physical address corresponding to the logical address in SP. Then, copy the logical address of the first
+		instruction that must be fetched after IRET into this physical memory location and execute IRET.
+
+	The Reference bit and the Dirty bit are set by the machine.
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		
+ExpL permits application programs to call the function exposcall() that implements the high level library interface to the 
+OS. 
+The ExpL library file library.lib supplied to you along with the expOS package contains assembly language implementation of
+the library and occupies two pages of memory. The OS design stipulates that this library code must be pre-loaded to the XSM
+disk blocks 13 and 14 before OS bootstrap using XFS interface. OS startup code is supposed to load this code into memory
+pages 63 and 64 from disk blocks 13 and 14.
+
+The compiler expects that the library will be loaded to the logical address 0 of the address space of the program. The target
+code generated by the compiler will not contain the code for the library. The OS is expected to link this code (at 63 and 64)
+into logical pages 0 and 1 when the program is loaded for execution.
+
+EXPL SPECIFICATION
+	int a, b, c;
+	str mystring;
+	int a[10];
+	str stringlist[10];
+
+	mytype {
+		int a;
+		str b;
+	}
+	mytype var1, var2;
+	var = alloc();
+	var.a = 10;
+	retval = free(var);
+
+	An ExpL program consists of the following sections:
+		Type Definitions
+		Global Declarations
+		Function Definitions and the main Function Definitions
+	
+
+	type 
+	linkedlist {
+		int data;
+		linkedlist next;
+	}
+	marklist {
+		str name;
+		linkedlist marks;
+	}
+	endtype
+	// ...Global Declarations..
+	// ...Functions....
+
+	For every function except the special main function, there must be a declaration.
+	ExpL enforces call-by-value semantics for integer and string parameters and call-by-reference for user-defined types.
+	Arrays cannot be passed as arguments. I
+
+	decl
+	int x, y, a[10], b[20];
+	str t, q[10], f3(str x);
+	mytype m, fun(mytype t);
+	enddecl
+
+	The main() function, must be a zero argument function of return type integer. It must be defined after declaration 
+	before all other functions are defined.
+
+	int fun(int a, int b) {
+		decl
+			int c, d;
+		enddecl
+		begin
+			c = a + b;
+			d = a - b;
+			write(c);
+			write(d);
+			return c;
+		end
+	}
+
+	In assignment if the Lvalue is a user defined variable, then the Rvalue must either be an expression of the same type, 
+	or the special constant NULL, or an invocation of the function alloc().
+
+	if <> then
+		..
+	else
+		..
+	endif;
+
+	while <> do
+		..
+	endwhile;
+
+	Using read statement, we can read a string or an integer into a variable of type string or integer.
+	read (<>);
+	write(<>);
+
+	break; continue;
+	breakpoint;
+
+	initialize();
+	t = alloc();
+	retval = free(t);
+
+	Initialize() must be invoked before any allocation is made and it resets the heap to default values.
+
+HIGH LEVEL LIBRARY INTERFACE (API):
+	The ExpL lang allows apps to access the OS routines only through the library interface. The syntax for the call to the
+	library function in ExpL is:
+	t = exposcall (fun_code, arg1, arg2, arg3);
+	http://exposnitc.github.io/os_spec-files/dynamicmemoryroutines.html
+
+THE EXPOS PROCESS MODEL
+	A program under execution is called a process. 
+	expos associates a virtual (memory) address space for each process.
+		Shared library
+		heap
+		Text / Code
+		Stack
+	The address space of a process is a contiguous sequence of memory addresses, starting from zero, 
+	accessible to a process. The max limit on the address space of a process is 5120 (10 pages).
+	The expos logically partitions the address space into 4 regions library, heap, code, and stack.
+
+	Every process corresponds to fome executable file stored in XEXE format stored in the XFS file
+	system. The XEXE header of the executable file contains the information about how much space must 
+	be allocated for the various memory regions.
+	Once the layout of the virtual address space is clear, the OS maps the virtual address space into
+	the physical memory. The part of the OS which does all these tasks is called the OS loader.
+	The expos loader is the interrupt service routine corresponding to the Exec system call.
+
+	The OS assigns a semaphore identifier (semid) for each semaphore acquired by the process. The file
+	handles and semids acquired by a process are also attributes of a process.
+
+	In addition to the above atrributes of a process that are visible to application / system programs,
+	a process under execution at any given point of time has an execution context.
+
+	A process can get its process id using the Getpid system call. The pid of the parent process can
+	be obtained using the Getppid system call.
+
+	The 2 most fundamental operations associated with process are Fork and Exec. The remaining operations
+	are Exit, Wait, Signal, Getpid and Getppid.
+
+	Semantics of Exec operation:
+		1. The OS closes all files and semaphores opened by the process. A new address space is created
+		replacing the existing one.The new process inherits the process id of the calling process.
+		2. The code of the executable file are loaded into the code (and stack) regions of the new address
+		space. The system library is mapped to the library region and stack is initialized to empty.
+		3. The machine instruction pointer is set to the location specified in the executable header.
+		The machine stack pointer is initialized to the beginning of the stack.
+
+	Semantics of Fork operation:
+		1. A new child process with a new process id and address space is created which is an exact
+		replica of the original process with the same library, code, stack, and heap regions.
+		(The OS assigns a new process id for the child and returns this value to the parent as the 
+		return parameter of the fork system call.)
+		The heap, code and library regions of the parent are shared by the child.
+		Both processes are in concurrent execution subsequent to the fork operation. Stack is 
+		separate for the child and is not shared.
+		2. All open file handles and semaphores are shared by the parent and the child.
+		The Exit system call terminates a process after closing all files and semaphores.
+		The Wait system call suspends the execution of a process till another process exits or 
+			executes a Signal system call.
+		The Signal system call resumes the execution of a process that was suspended by wait.
+		In Multiuser implementation of expOS, the child inherits the userid of the parent process.
+
+	expOS specifies 2 special processes, the idle and the init process. The main purpose of idle
+	process is to run as a background process in an infinite loop. This is demanded by the OS so
+	that the scheduler will always have a process to schedule. The init process is the first 
+	process is the first process executed by the OS. 
+	The process identifiers for the idle and init are fixed as 0 and 1 respectively.
+
+	A shell is an EXpl program which takes the name of an executable file as input and executes it.
+	The shell process Forks itself and the child process invokes the Exec system call with the 
+	executable file as argument. The shell runs until the user stops the process.
+
+	In the Multiuser ext, the init process is responsible for logging in users and hence, called
+	the Login process. The process identifier for shell in this case is 2.
+
+The idle process simply contains an infinite loop.
+Idle must be stored in the disk blocks 11 and 12. The OS loader must load this program to memory
+pages 69 and 70. 
+The PID of the idle process is fixed to be 0.
+
+int main()
+{
+	decl
+		int a;
+	enddecl
+	begin
+		while(1==1) do
+			a=1;
+		endwhile;
+		return 0;
+	end
+}
+
+implementation plan is to store the process table entry for the process with ID = 0 in the 16 words
+starting at memory address PROCESS_TABLE, the process table entry for process with PID = 1 in 16 
+words starting at memory address PROCESS_TABLE + 16.
+Page table for the process with PID = 0 will be stored in 20 words starting at address PAGE_TABLE_BASE
+, page table for PID = 1 will start at PAGE_TABLE_BASE + 20 and so on. 
+The memory layout design permits space for process / page table entries for a maximum of 16 processes.
+
+
+MODULE 13
+
+As modules execute in kernel mode, the kernel stack of the currently scheduled process is used as the
+caller-stack for module invocation. XSM supports 8 modules - MOD_0 to MOD_7 - which can be invoked
+using the CALL MOD_n instruction. 
+While switching to module, the CALL instruction pushes the IP address of the instruction following the 
+CALL instruction on the top of the kernel stack and starts execution of the corresponding module.
+
+A module returns to the caller using the RET instruction which stores the IP value present on the top
+of the kernel stack, pushed earlier by the CALL instruction.
+
+the OS startup code is provided with only 1 memory page. So we design a module for the purpose of OS
+initilization of several OS data structures. (Boot module)
+
+The OS startup code hand-creates the idle process, initializes the SP register to the kernel stack of
+the idle process, loads module 7 in memory and then invokes the boot module (using the stack of the 
+IDLE process.) 
+Upon return from the boot module, the OS startup code initiates user mode execution of the idle process.
+
+The idle process is run first to ensure that this process is scheduled at least once, so that its context
+gets initialized. 
+
+
+MODULE 14
+
+When the timer ISR calls the scheduler, the active kernel stack will be that of the currently running
+process. The scheduler assumes that the timer handler would have saved the user context of the current
+process (R0-R19 and BP registers) into the kernel stack before the call.
+
+The scheduler first saves the values of the registers SP, PTBR and PTLR to the process table entry of 
+the current process. Having decided on the new process, the scheduler loads new values into SP, PTBR
+and PTLR registers from the process table entry of the new process. It also updates the system Status
+table to store PID of new process.
+
+Although the scheduler module was called by one process (from the timer ISR), since the stack was
+changed inside the scheduler, the return is to a program instruction in some other process (determined
+by the value on top of the kernel stack of the newly scheduled process.)
+The return is to that instruction which immediately follows the call scheduler instruction in the 
+newly selected process.
+
+If CREATED and not READY, then SP is set to the top of the user stack.
+
+KERNEL STACK MANAGEMENT DURING KERNEL MODULE CALLS
+	Modules cannot be invoked by a program executing in the user mode.
+	Execution context of the caller should be saved in its kernel stack before transferring control to the invoked kernel
+		module.
+	
+Module 15
+
+Before the user of a resource, a process has to first acquire the required resource by invoking the resource manager. The
+resource manager implements 2 functions for each resource - one to acquire the resource and the other to release the 
+resource by a process. 
+
+The OS maintains a data structure called the Terminal Status Table. A flag named STATUS in the terminal status table 
+indicates whether the terminal is available or not.
+
+Acquire Terminal and Release Terminal have function numbers 8 and 9 respectively.
+Function number is stored in register R1 and passed as argument to the module.
+For both Acquire and Release Terminal, PID of the currently running process needs to be passed as an argument through the
+	register R2.
+
+Write system call invokes a function called Terminal Write present in device manager module (Module 4).
+Terminal Write function acts as an abstract layer between the write system call and terminal handling functions in resource
+manager module.
+
+The function number for Terminal Write is 3 which is stored in register R1. The other arguments are PID and the word to be
+printed.(R2 and R3).
+
+Terminal Write first acquires the terminal by calling Acquire Terminal. It prints the word (present in R3) passed as an 
+argument. It then frees the terminal by invoking Release Terminal.
+
+The module sets its return value in register R0 before returning to the caller. The invoker must extract the return value, 
+pop back the saved registers and resume execution.
+
+The Acquire Terminal function waits in a loop. This kind of a waiting loop is called a busy loop or busy wait.
+A better solution to the problem that avoids a busy loop is to have the resource manager maintain a request queue associated
+with each resource. When a process requests a resource, it registers itself into a resource queue and goes into wait state.
+
+To invoke scheduler module from other modules or interrupt routines, it is necessary to save the register context into the 
+stack for proper resumption of execution.
+
+MODULE 16
+
+The IN instruction initiates a console input but will not suspend machine execution till some input is 
+read. Machine execution proceeds to the next instruction in the program. When the user enters data, 
+the data is transferred to port P0, and a console interrupt is raised by the console device.
+
+After the execution of each instruction in unprivileged mode, the machine checks whether a pending disk/
+console/timer interrupt. If so, the machine does the following actions:
+1. Push the IP value into the top of the stack.
+2. Set IP to value stored in the interrupt vector table entry for the timer interrupt handler.
+The vector table entry for timer interrupt is located at physical address 493 in page 0 (ROM) of XSM
+and the value 2048 is present in this location. Hence, the IP register gets value 2048. The machine 
+then switches to privileged mode and address translation is disabled. Hence, next instruction will 
+be fetched from physical address 2048. 
+
+The exception handler code must start at memory address 1024 (page 2).
+
+a. Illegal Memory Access:
+	out of logical address space.
+	Write access bit is not set.
+b. Illegal instructions:
+	when instruction does not belong to the instruction set.
+c. Arithmetic exception:
+	division / modulus by zero.
+d. Page Fault: 
+	valid bit is 0 when logical page number is in range.
+	can happen during instruction fetch or operand fetch.
+
+Page fault exception allows the OS to delay allocation of memory pages to a program in execution till
+the program actually tries to access the page. The OS can set the valid bit of unallocated pages in 
+the address space of the process to 0 and wait for the program to generate a page fault when the 
+program tries to access the page.
+Such lazy allocation minimizes memory usage and helps OS to concurrently accomodate more programs in
+memory. This technique is called demand paging.
+
+When machine raises an exception, the following occurs:
+1. IP is set to value 1024 and machine switches to privileged mode. Thus, the next instruction will be
+fetched from the exception handler.
+2. The machine sets several CPU regs with values that describe the cause of the exception.
+
+Explained below:
+a. EIP - logical IP of unprivileged mode ins.
+b. EPN - (ex page number) page fault exception.
+c. EC - (exception cause) 
+	1. Page Fault: 0.
+	2. Illegal ins: 1.
+	3. Illegal memory access: 2.
+	4. Arithmetic exception: 3.
+d. EMA - (Ex memory address)
+	illegal memory access.
+	write is attempted for a ready only.
+
+IN is a privileged instruction and can be executed only inside a system call / module. Hence, to read
+data from the console, a user process invokes the read system call.
+The read system call invokes the Terminal Read function present in Device Manager module (Module 4).
+This IN instruction will be executed within this Terminal Read function.
+
+IN instruction will not wait for the data to arrive in P0.
+When some string / number is entered from the key-board and ENTER is pressed, the XSM machine will raise the console interrupt.
+A process executing the IN instruction will sets its state to WAIT_TERMINAL and invoke the scheduler.
+
+It is the responsibility of the console interrupt handler to transfer the data arrived in port P0 to the process which is waiting 
+for the data.
+This is done by copying the value present in port P0 into the input buffer field of the process table entry fo the process which 
+has requested for the input.
+Console interrupt handler also wakes up the process in WAIT_TERMINAL by setting its state to READY.
+
+For a terminal read, the file descriptor (-1 for terminal input) is passed as the first argument. The second argument is a variable 
+to store number / string from console. Expl libray converts exposcall to lls call interface for read system call, to invoke 
+interrupt 6.
+
+The read system call invokes the Terminal Read function present in the Device manager Module.
+Function number for the Terminal Read function, current PID and address where the word has to be stored are sent as
+arguments through registers R1, R2, and R3.
+
+
+
+
+MODULE 17
+
+Application Binary Interface
+	The Machine Model
+	Logical division of memory
+	XEXE file format.
+	low level system call interface
+	low level runtime library interface
+
+Name of the executable file is the only input to the exec system call. 
+This file should be present in the disk before starting the machine. 
+The inode index of this file can be obtained by going through the memory copy of the inode table.
+
+Exec first deallocates all pages the invoking process is using. It also invalidates the entries of 
+the page table of the invoking process. The newly scheduled process will have the same PID as that of
+the invoking process. 
+Exec calls the Exit Process function in the process manager module (module 1) to deallocate the pages
+and to terminate the current process.
+
+New pages will be acquired by invoking the Get Free Page function present in the memory manager module
+(module 2). Page table is updated according to the new pages acquired. 
+
+expOS maintains a data structure called memory free list in page 57 of the memory. 
+
+Exec takes as input a filename. It first checks whether the file is a valid expOS executable stored in
+the XSM disk, adhering to the XEXE format. If so, Exec destroys the invoking process, loads the 
+executable file from the disk, and sets up the program for execution as a process.
+
+The inode index of this file can be obtained by going through the memory copy of the inode table.
+
+Exec first deallocates all pages the invoking process is using. These include 2 heap pages, 2 user 
+stack pages, code pages occupied by the process and the user area page. It also invalidates the entries
+of the page table of the invoking process. 
+
+Exec calls the Exit Process function in the process manager module (module 1) to deallocate the pages
+and to terminate the current process.
+
+New pages will be acquired by invoking the Get Free Page function present in the memory manager module
+(module 2). Page table is updated according to the new pages acquired. 
+
+expOS maintains a data structure called memory free list in page 57 of the memory. Each Page can be 
+shared by zero or more processes. There are 128 entries in the memory free list corresponding to each
+page of memory. For each page, the corresponding entry in the list stores the number of processes 
+sharing the page. The constant MEMORY_FREE_LIST gives the starting address of the memory free list.
+
+1. Exit process (function - 3, process manager module)
+	takes PID, deallocates all the pages of the invoked process. It deallocated the pages present in
+	the page table by invoking another function called Free Page Table present in the same module.
+	The state is set to TERMINATED. 
+2. Free Page Table (function - 4, process manager module)
+	takes PID, in the function free page table, for every valid entry in the page table of the process, 
+	the corresponding page is freed by invoking the Release Page function present in the memory manager
+	module.
+	Do not invoke the Release Page function for the library pages.
+	Free Page Table invalidates all the page table entries of the process with given PID.
+3. Free User Area Page (function - 2, process manager module)
+	takes PID, User Area Page number of the process is obtained from the process table entry.
+	freed by invoking the Release Page function from the memory manager module. Return address for the
+	call to Free User Area Page function itself can be released, the return address and the saved 
+	context of the calling process will not be lost because Release Page function is non blocking and
+	hence the page will never be allocated to another process before control transfers back to the
+	caller.
+4. Release Page (function - 2, memory manager module)
+	takes Page number, decrements the value in the memory free list corresponding to the page number 
+	given as an argument.
+	The system status table keeps track of number of free memory pages available to use in the 
+	MEM_FREE_COUNT field. When the memory free list entry of the page becomes 0, no process is 
+	currently using the page.
+	In this case, increment the value of MEM_FREE_COUNT in the system status table indicating that 
+	the page has become free for fresh allocation. Release page function must check whether there are 
+	processes in WAIT_MEM state. 
+5. Get Free Page (function - 1, memory manager module)
+	to acquire pages, function returns the page number of the page allocated. Get Free page searches 
+	through the memory free list to find a free page for the allocation. If a free page is found, 
+	memory free list entry corresponding to that page is incremented and number of the page found is 
+	returned.
+	If no mem page is free, then state of the process is changed to WAIT_MEM and the scheduler is invoked.
+	The field WAIT_MEM_COUNT in the system status table stores the number of processes waiting to 
+	acquire a memory page. The Get Free Page function increments the WAIT_MEM_COUNT before changing 
+	state to WAIT_MEM. The process waits in the WAIT_MEM state until any memory page is available for use.
+	Get Free Page function allocates the free memory page and updates the WAIT_MEM_COUNT and MEM_FREE_COUNT
+	in the system status table.
+
+
+MODULE 18
+
+The LOAD instruction takes 2 arguments, a page number and a block number. 
+The XSM machine doesn't wait for the block transfer to complete, it continues
+with the execution of the next instruction. 
+
+To initiate the disk transfer using the load statement, first the process 
+has to acquire the disk. The disk status table has a LOAD / STORE bit indicating
+whether the disk operation is a load or store. To keep track of the process
+that has currently acquired the disk, the PID of the process is also stored 
+in the disk status table.
+
+When the load / store transfer is complete, XSM machine raises the hardaware
+interrupt called the disk interrupt. 
+
+MODULE 19
+
+There are 4 special registers in XSM which are used to obtain the cause of the exception and the 
+information related to the exception. These registers are EC, EIP, EPN, and EMA. The cause of the 
+exception is obtained from the value present in the EC register.
+
+For the events 
+1) illegal memory access (EC = 2)
+2) illegal instruction (EC = 1)
+3) arithmetic exception (EC = 3)
+
+The page fault exception (EC = 0) occurs when the last instruction in the currently running application
+tried to either - 
+a) Access / modify data from a legal address within its address space, but the page was set to invalid
+in the page table or 
+b) fetch an instruction from a legal address within its address space, whose page table entry is invalid.
+
+In either case, the exception handler resumes the execution of the process after allocating a page in
+memory, attaching the page to the process and loading the page from the disk to this memory region.
+Lazy allocation allows better memory allocation.
+
+We will modify exec to allocate the memory pages for only stack (2 pages). No memory pages will be 
+allocated to heap. Consequently, the entries in the page table corresponding to heap are set to invalid.
+For code blocks, only a single memory page is allocated and the first code block is loaded into that 
+memory page.
+
+We will write a new module function Get Code Page in the memory manager module for simultaneously 
+allocating a memory page and loading a code block.
+
+Each process has a data structure called Per-process Disk map table. The disk map table stores the disk
+block numbers corresponding to the memory pages used by the process. Each disk map table has 10 words
+of which one is for user area page, 2 for heap, 4 for code, and 2 for stack pages. 1 is unused.
+Whenever the copy of the memory page of a process is present in some disk block, that disk block number 
+is stored in the per-process Disk Map Table entry corresponding to that memory page.
+
+The SPL constant DISK_MAP_TABLE gives the starting address of the Disk Map Table of process with PID as
+0. The disk map table for any process is obtained by adding PID * 10 to DISK_MAP_TABLE.
+
+The Get Code Page function takes as input the block number of a single code block, and loads that block
+into a memory page. The purpose of this function is to find out if the current code block is already in use 
+by some other process. This is done by going through the disk map table entries of all the processes 
+checking for the code block.
+If found, the the Get Code Page checks if the code block is loaded into a memory page. If the code block
+is already present in some memory page then it just returns the page number. If not, a new memory page 
+is allocated by invoking Get Free Page function of the memory manager module. This is followed by 
+loading the code block into the newly allocated memory page using the Disk Load function of the device
+manager module. The Get Code Page function finally returns the memory page number.
+
+The exception handler uses EC register to find out the cause of the exception. If the cause is other than
+page fault, exception handler should print the appropriate error message to notify user about the 
+termination of the process. Terminated by invoking the Exit process function of process manager module
+and invoke the scheduler to schedule other processes.
+
+Expos is designed such that, page fault exception can only occur for heap and code pages. Based on EPN 
+register, the exception handler finds out whether page fault has caused for heap or code page. When page 
+fault has occured for heap page (EPN value 2 or 3), exception handler allocates a new memory page by 
+invoking the Get Free Page function in memory manager module. 
+
+After handling the page fault exception, the exception handler restores the resister context, switches
+to user stack and returns to user mode.
+
+An OS can implement Demand Paging, only if the underlying machine hardware supports re - execution of
+the instruction that caused a page fault.
+
+The Free Page Table function of the process manager moudle decrements the memory reference count of the 
+memory pages acquired by a process. If some stack / heap page is swapped in the disk, the reference 
+count of the corresponding disk block is decremented in the disk free list. 
+
+In later stages, the OS will allocate certain disk blocks to a process temporarily. This is done to 
+swap out the heap / stack pages of a process when the OS finds shortage of memory space to run all the 
+processes.
+
+***************************************************************************************************
+MODULE 20
+
+The child process will be allocated a different PID and a new address space. 
+The child process will have a different process table and page table. 
+The child an parent will share the code and heap regions of the address space. 
+2 new stack pages and a new user area page.
+
+The process table is initialized with the same values except for 
+TICK, PID, PPID, USER AREA PAGE NUMBER, KERNEL STACK POINTER, INPUT BUFFER, MODE FLAG, PTBR and PTLR.
+The contents of the stack of the parent are copied into the new stack pages allocated for the child.
+
+The contents of the per process resource table in the user area page of the parent process is copied
+to the child process. However, the contents of the parent's kernel stack are not copied to the child, 
+and the kernel stack of the child is set to empty.
+
+Fork system call returns to the parent process. The parent resumes execution from the next instruction 
+following the INT instruction invoking fork. Upon successful completion, fork returns the PID of the child
+process to parent process.
+
+After fork child is in created state. When the child process is scheduled, it will start its execution 
+form the immediate instruction after the call to fork. The return value of fork to the child process
+is zero.
+
+Expl compiler allocates local variables, global variables and arrays of primitive data types(int, string)
+of a process in the stack. Since the parent and child processes have different memory pages for the 
+user stack, they resume after fork with separate private copies of these variables, with the same values.
+
+Since the Parent and child processes can concurrently access / modify the heap pages, they need support
+from the OS to synchronize access to the shared heap memory. expOS provides support for such sync through
+system calls for semaphores and signal handling. 
+
+For code and libray pages sync is not required because read only.
+
+Fork has sys call number 8 and it is implemented in the interrupt routine 8. Does not take any arguments.
+
+First thing to do in the fork system call is to set the MODE FLAG to the system call nubmer and switch 
+to the kernel stack. To get a new PID for the child process, invoke the Get Pcb Entry function from 
+the process manager module. Get Pcb Entry returns the index of the new process table allocated for the 
+child. This index is saved as the PID of the child.
+
+If a free process table is not available, Get Pcb Entry returns -1. In such case, store -1 as the
+return value in the stack, reset the MODE FLAG (to 0), switch to user stack and return to the user mode
+from the fork system call. When PID is available, proceed with the fork system call.
+
+The child process requires new memory pages for stack (two) and user area page (one). To allocate a 
+memory page, invoke the Get Free Page function of the memory manager module.
+
+If the heap pages are not assigned for the parent process, allocate heap pages by invoking the Get 
+Free Page function of the memory manager and set the page table entries for the heap to the pages 
+acquired.
+
+The next step in the fork system call is intialization of the process table for the child process.
+Copy the USERID field from the process table of the parent to the child process, as the user will be
+same for both child and parent.
+Copy the SWAP FLAG and the USER AREA SWAP STATUS fields. 
+INODE INDEX for the child and the parent processes will be same, as both of them run the same program.
+UPTR field should also be copied from the parent process. Content of the user stack is same for both 
+them, so when both of the processes resume execution in user mode, the value of SP must be the same.
+
+Set the MODE FLAG, KPTR and TICK fields of the child process to 0. MODE FLAG, KPTR are set to zero as
+the child process starts its execution from the user mode. The TICK field keep track of how long a process
+has been running in memory and should be initialized to 0, when a process is created.
+(The TICK field will be used later to decide which process must be swapped out of memory when memory is
+short. The strategy will be to swap out that process which had been in memory for the longest time).
+
+PID of the parent is stored in the PPID field of the process table of the child. STATE of the child 
+process is set to CREATED. Store the new memory page number obtained for user area page in the USER
+AREA PAGE NUMBER field in the process table of the child process. PID, PTBR and PTLR fields of the
+child process are already initialized in the Get Pcb Entry function. It is not required to initialize
+INPUT BUFFER.
+
+The per - process resource table has details about the open instances of the files and the semaphores 
+opened by the parent process. Hence we need to copy the entries of the per - process resource table of
+the parent to the child.
+
+Copy the per - process disk map table of the parent to the child. This will ensure that the disk block 
+numbers of the code pages of the parent process are copied to the child. Further, if the parent has 
+swapped out heap pages, those will be shared by the child.
+
+The expOS design guarantees that the stack pages and the user area page of a process will not be swapped
+at the time when it invokes the fork system call. Hence the disk map table entries of the parent 
+process corresponding to the stack and user are pages will be invalid, and these entries of the child
+too must be set to invalid.
+
+Initialize the page table of the child process. Heap, code and library pages should be copied from the 
+page table of the parent to the child.
+For each page shared, increment the corresponding share count in the memory free list.
+Initialize the stack page entries in the page table with the new memory page numbers obtained earlier.
+The auxiliary information for the stack pages is same for both parent and child. Copy content of the 
+user stack pages of the parent to the user stack pages of the child word by word.
+
+Store the value in the BP register on top of the kernel stack of child process. This value will be used
+to initialize the BP register of the child process by the scheduler when the child is scheduled for the 
+first time.
+
+Set up return values in the user stacks of the parent and the child processes. Store the PID of the 
+child process as return value to the parent and 0 as the return values to the child. Reset the MODE 
+FLAG of the parent process. Switch to the user stack of the parent process and return to the user mode.
+
+MODULE 21
+
+When a process executes the Wait system call, its execution is suspended till the process 
+whose PID is given as argument to Wait terminates or executes the Signal system call.
+The process that enters Wait sets its state to WAIT_PROCESS and invokes the scheduler.
+
+A process executes the Signal system call to wake up all the processes waiting for it.
+If a process terminates without invoking Signal, then Exit system call voluntarily 
+wakes up all the processes waiting for it.
+
+When process A issues the Wait system call with the PID of process B, it intends to wait
+until process B signals or terminates. When process B is done with the resource, it can 
+invoke the Signal system call to wake up process A. 
+
+Signals are memoryless. 
+
+We will modify the Exit Process function in the process manager module to wake up all 
+processes waiting for the terminating process.
+The Exit process function is invoked by the Exec system call as well. In this case, the 
+process waiting for the current process must not be woken up.
+
+Finally, all child processes become orphan processes and their PPID field is set to -1
+in the module function Exit Process. If Exit process is invoked from the Exec system 
+call, the children must not become orphans.
+
+The shell asks for a string. If it is "Shutdown", the program executes the Shutdown 
+system call to halt the OS. Otherwise, it forks and create a child process. The parent 
+process then waits for the child to exit using the Wait system call. The child process 
+will try to execute the command. If no such file exists, Exec fails and the child prints 
+"BAD COMMAND" and exits. Otherwise, the command file will be executed. In either case, upon 
+completion of the child process, the parent process wakes up.
+
+Interrupt routine 11
+
+Wait, Signal, Getpid and Getppid are all implemented in the interrupt routine 11. Each system
+call has different system call number.
+
+Extract the system call number from the user stack and switch to the kernel stack
+Implement system calls according to the system call number extracted from above step.
+
+Exit Process function is modified so that it wakes up all the processes waiting for the current process. 
+Similarly, the children of the process are set as orphan processes by changing PPID field of child processes to -1.
+But when the Exit Process function is invoked in the same address space and is executed with the same PID. When 
+Exit Process is invoked from Exec sys call, it should not wake up the processes waiting for the current process
+and also should not set the children as orphan processes. 
+
+
+MODULE 22
+
+Semaphores are primitives that allow concurrent processes to handle the critical section problem. expOS provides
+binary semaphores which can be used by user programs to synchronize the access to the shared resources so that
+data inconsistency will not occur.
+
+There are 4 actions related to semaphores that a process can perform. 
+1. Acquiring a semaphore - Semget system call
+2. Releasing a semaphore - Semrelease system call
+3. Locking a semaphore - SemLock system call
+4. Unlocking a semaphore - SemUnLock system call
+
+To use a semaphore, first a process has to acquire a semaphore. When a process forks, the semaphores currently 
+acquired by a process is shared between the child and parent.
+A process can lock and unlock a semaphore only after acquiring the semaphore.
+
+The process can lock the semaphore when it needs to enter into the critical section. After exiting from the 
+critical section, the process unlocks the semaphore allowing other processes to enter the critical section.
+After the use of a semaphore is finished, a process can detach the semaphore by releasing the semaphore.
+
+A process maintains record of the semaphores acquired by it in its per-process resource table.
+expOS uses the data structure, semaphore table to manage semaphores. 
+Semaphore table is a global data structure which is used to store details of semaphores currently used by all 
+the processes. 
+
+The semaphore table has 32 (MAX_SEM_COUNT) entries. This means that only 32 semaphores can be used by all the 
+processes in the system at a time. Each entry in the semaphore table occupies 4 words of which the last 2 are 
+currently unused. 
+For each semaphore, the PROCESS COUNT field in it's semaphore table entry keeps track of the number of processes
+currently sharing the semaphore.
+If a process locks the semaphore, the LOCKING PID field is set to the PID of that process. LOCKING PID is set to
+-1 when the semaphore is not locked by any process.
+An invalid semaphore table entry is indicated by PROCESS_COUNT equal to 0.
+The SPL constant SEMAPHORE_TABLE gives the starting address.
+
+Per-Process resource table is stored in the last 16 words of the user area page of a process.
+Per-process resource table can store details of at most 8 resources at a time.
+Each per process resource table entry contains 2 words. The 1st field, called the Resource Identifier field, 
+indicates whether the entry corresponds to a file or a semaphore.
+
+For FILE (0) is used and for semaphore, SEMAPHORE(1) is used.
+
+The second field stores the index of the semaphore table entry if the resource is a semaphore.
+'
+1. Semget System Call 
+	Semget system call is used to acquire a new semaphore. Semget finds a free entry in the per-process resource
+	table. Semget then creates a new entry in the semaphore table by invoking the Acquire Semaphore function of 
+	resource manager module.
+	The index of the semaphore table entry returned by Acquire Semaphore function is stored in the free entry of 
+	per - process resource table of the processes. Finally, Semget system call returns the index of newly created 
+	entry in the per-process resource table as semaphore descriptor (SEMID).
+
+2. Semrelease System Call
+	takes SEMID as argument from user program. Semrelease system call is used to detach a semaphore from the process.
+	Semrelease releases the acquired semaphore and wakes up all the processes waiting for the semaphore by invoking 
+	the Release Semaphore function of resource manager module. Semrelease also invalidates the per-process resource 
+	table entry corresponding to the SEMID given as an argument.
+
+Implemenatation of INT 14
+
+The system calls SemLock and SemUnLock are implemented in the interrupt routine 14. SemLock and SemUnLock has
+system call numbers 19 and 20 respectively.
+
+1. SemLock System Call
+	takes a semaphore descriptor (SEMID) as an argument from user program. A process locks the semaphore it is 
+	sharing using the SemLock call. If the requested semaphore is currently locked by some other process, the current
+	process blocks its execution by changing its STATE to the tuple (WAIT_SEMAPHORE, semphore table index of requested 
+	semaphore) until the requested semaphore is ulocked. 
+	When the semaphore is unlocked, then STATE of the current process is made READY (by the process which has unlocked
+	the semaphore.)
+	When the current process is scheduled and the semaphore is still unlocked the current process locks the semaphore
+	by changing the LOCKING PID in the semaphore table entry to the PID of the current process. When the process is 
+	scheduled but finds that the semaphore is locked by some other process, current process again waits in the busy loop
+	until the requested semaphore is unlocked.
+
+2. SemUnLock System Call
+	SemUnLock system call takes a semphore descriptor (SEMID) as argument. A process invokes SemUnLock system call to
+	unlock the semphore. SemUnLock invalidates the LOCKING PID field (store -1) in the semaphore table entry for the 
+	semaphore. All the processes waiting for the semaphore are made READY for execution.
+
+
+MODULE 23
+
+expOS File System and Implementation
+	2. INODE TABLE 
+		When a file is created by the Create system call, no disk blocks are allocated for the file, and only an
+		
+		Inode entry is created. Hence the file size will be set to 0 initially. Filename and access permissions are 
+		supplied as arguments to Create system call and are set accordingly.
+		
+		The user-id of the process executing Create system call will set as the owner of the file. 
+		
+		A file can be created with Exclusive Access / Open Access permission. The access permission is given as an
+		argument to Create system call. If a file is created with exclusive access, the Delete and Write system calls
+		must fail if executed by any process whose user-id is not equal to root, or the owner of the file.
+
+	3. Root File
+		Each file has an entry in the root file. The root file entry for a file contains filename, file size, 
+		file - type, user - name and access permissions. 
+		An application readable root file allows implementation of commands like "ls" as user mode 
+		programs.
+		The only data in the root file entry of a file that is not present in the inode table is the 
+		use name of the owner of the file. 
+
+	4. User Table
+		Contains names of each user who has an account in the system. The entry of a user in the user 
+		table consists of a) username and b) encrypted password. The OS assigns a user-id to each user.
+		The user-id of a user is the index of the user's entry in the user table. 
+		The first 2 entries of the table are (user-id 0 and 1) are reserved for special users kernel and 
+		root.
+
+		When a process executes the Create system call to create a file, Create system call looks up the
+		process table entry of the calling process to find the user-id of the process executing Create 
+		and sets the user-id field in the Inode table. The system call then looks up the user table entry
+		corresponding to the user-id and finds out the username and sets the user name field in the root
+		file entry created for the file.
+
+	When the OS is running, user processes can Open / Read / Write an already created file. When a file
+	is opened by a process using the Open system call, a new "open instance" is created. The OS keeps 
+	track of the number of open instances of a file at all times. If a file is opened multiple times, 
+	each Open call results in creation of a fresh open instance.
+
+	Associated with each open instance of a file, there is a seek pointer, which is initialized to the 
+	beginning of the file (value 0) by the Open system call. If a process opens a file and subsequently
+	invokes the Fork system call, the seek pointer is shared between the parent and the child. 
+	The seek pointer value can be modified using the Seek system call. 
+
+	To implement this OS maintains 2 global file data structures - the file status table and the open 
+	file table. For each process the OS maintains a per - process resource table, which contains 
+	information pertaining to the open instances of files of the particular process.
+
+	The OS further maintains a buffer cache which is user for caching data blocks of files in current
+	use. A buffer table is user to manage the data related to the buffer cache. 
+
+	1. File Status Table
+		contains an entry for each file in the FS. The index of a file's Inode table entry and file 
+		status table entry will be the same.
+		Purpose
+		1. To keep track of how many times each file has been opened using the open system call.
+		2. To provide a mechanism for processes to lock a file before making updates to the file's 
+			data / metadata.
+
+		Every time a file is opened by process using the Open system call, the file open count field in
+		the corresponding file status table entry is incremented. The table gives the global count of the
+		number of open instances of a file.
+
+		When a process enters a file system call and tries to access a file, the system call code must 
+		first lock access to the file to ensure that till the system call is completed, no other process
+		is allowed to execute any file system call that accesses the file's data / metadata.
+		The system call locks the file by setting locking Pid field of the file status table to the PID 
+		of the process executing the system call. Upon completion of the system call, the sytem call code
+		must unlock the file before returning to user mode. The Acquire Inode and Release Inode functions
+		of the Resource Manager Module are designed to handle file access regulation.
+
+	2. Open File Table
+		If a process opens a file using the Open sytem call and subsequently execute a Fork system call,
+		the open instance of the file is shared between the parent and the child. If the child further 
+		execute fork, more processes will share the same open instance. Hence, there must be a mechanism
+		to keep track of the count of processes sharing the same open instance of a file.
+
+		Whenever a file is opened by a process, an open file table entry is created for the open 
+		instance.
+		The entry contains 3 fields:
+		a) The index of the inode table of the file.
+		b) The count of the number of processes sharing the open instance, which will be set to 1 when 
+		the file is opened as only one process is sharing the open instance. 
+		c) The seek pointer for the open isntance is stored in the open file table.
+
+	4. Memory Buffer cache
+		Whenever a process tries to Read / Write into a file, the relevant block of the file is first 
+		brought into a disk buffer in memory and the read/ write is performed on the copy of the block
+		stored in the buffer. The OS maintains 4 memory buffer pages as cache.
+
+	5. Buffer Table
+		For managing the buffer cache. contains 1 entry per each buffer page. 
+
+		a) The block number of the disk block currently stored in the buffer page. If the buffer is 
+			unallocated, the disk block number is set to -1.
+		b) A flag indicating whether the block was modified after loading (dirty).
+		c) The PID of the process that has locked the buffer page (-1 if no process has locked the 
+			buffer)
+
+		When a process tries to do read / write into certain data block of a file using Read / Write
+		system call, the system call must first determine the buffer number to which the block must be 
+		loaded  and lock the buffer before initiating disk to buffer data transfer. 
+	
+MODULE 24
+
+1. Open system call
+	Open system call takes a filename as an argument from the user program. To perform read / write operations on a file,
+	a process must open the file first. Open system call creates a new open instance for the file and returns a file 
+	descriptor (index of the new per - process resource table entry created for the open instance.)
+	Further operations on the open instance are performed using this file descriptor. A process can open a file several 
+	times and each time a different open instance (and new descriptor) is created. The gloabal data structure, Open file 
+	table keeps track of all the open file instances in the system. 
+	File Status table is a global data structure that maintains an entry for every file in the system.
+
+	Open system call creates new entries for the file to be opened in the per-process resource table and the open file table.
+	A process keeps track of an open instance by storing the index of the open file table entry of the instance in resource
+	table entry. When a file is opened, the OPEN INSTANCE COUNT in the open file table is set to 1 and seek position is 
+	initialized to the starting of the file (0)
+
+	Each time when a file is opened, the FILE OPEN COUNT in the file status table entry for the file is incremented by one.
+	Open system call invokes Open function of file manager module to deal with global data structures - file status table and
+	open file table. 
+	When a process executes a Fork system call, the open instances of files (and semaphores) created by the process are shared
+	between the current process and its child.
+	As an effect of Fork, the OPEN INSTANCE COUNT in the open file table entry corresponding to the open instance is incremented
+	by one.
+
+	FILE OPEN COUNT (in the file status table) 
+	OPEN INSTANCE COUNT (in the open file table)
+	Former keeps track of the global count of how many times Open System call has been invoked with each file in the system - 
+	that is the number of open instances of a file at a given point of time.
+	This count is decremented each time when a Close is invoked on the file by any process. Each open instance could be further
+	shared between multiple processes. OPEN INSTANCE COUNT value of a particular open instance essentially keeps track of 
+	this "share count".
+
+2. Close system call
+	Close system call takes a file descriptor (per - process resource table entry) as argument from the user program. Close
+	system call invalidates the per - process resource table entry by storing -1 in the Resource Identifier field. To 
+	decrement share count of the opne instance in the open file table and update the file status table accordingly, Close 
+	function of file manager module is invoked by the Close system call.
+
+3. Open 
+	Open function is invoked by Open system call to update the file status table and open file table when a file is opened.
+	Open takes a file name as an argument. This function locates the inode index for the file in the inode table and locks 
+	the inode before processing further. Acquire Inode function of resource manager module is invoked to lock the file.
+	Locking the file is necessary to make sure that no other process tries to delete the file concurrently. Open function
+	creates a new entry in the open file table and returns the index of this entry to the caller.
+	All the fields of the open file table entry are initialized. In case the file is "root" file, INODE INDEX field is 
+	initialized to the INODE_ROOT(0).
+	Open function increments the FILE OPEN COUNT field by one in the file status table entry for the file, except if the 
+	file is "root" file. 
+	The lock on the file is released by invoking Release Inode function of resource manager module before returning to the 
+	caller.
+
+4. Close 
+	Close function is invoked by the Close system call to update the file status table and the open file table when a file is 
+	closed. Close takes an open file table index as argument. Close function decrements the share count (OPEN INSTANCE COUNT field
+	in the open file table entry) as the process no longer shares the open instance of the file. When the share count becomes zero,
+	this indicates that all processes sharing that open instance of the file have closed the file.
+	Open file table entry corresponding to that open instance of the file is invalidated by setting the INODE INDEX field to
+	-1 and the open count of the file (FILE OPEN COUNT field in file status table entry) is decremented.
+
+	
+

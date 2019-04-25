@@ -1,0 +1,16 @@
+// exit system call 
+
+// Exit system call first sets the MODE FLAG to the system call number and switches to the kernal stack.
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+// It then invokes the Exit Process function present in the process manager module.
+R1 = 3;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+call MOD_1;
+
+// Exit system call invokes the scheduler to schedule other processes. 
+call MOD_5;
+
+breakpoint;
+print "int 10";

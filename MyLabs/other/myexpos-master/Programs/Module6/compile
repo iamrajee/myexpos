@@ -1,0 +1,3 @@
+#!/bin/bash
+./spl ../Programs/module6/haltprog.spl
+./spl ../Programs/module6/os_startup.spl

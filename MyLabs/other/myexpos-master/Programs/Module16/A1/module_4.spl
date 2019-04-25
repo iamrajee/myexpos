@@ -1,0 +1,54 @@
+// Device Manager Module
+
+alias functionNum R1;
+alias currentPID R2;
+
+// Store the function number 8 in register R1 and PID of the curr
+// the System Status table in register R2 (Can use currentPID, as
+// it already contain current PID value).
+
+// Terminal Write
+if (functionNum == 3) then
+    multipush(R0, R1, R2, R3);
+    R1 = 8;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R0, R1, R2, R3);
+
+    print R3;
+
+    multipush(R0, R1, R2, R3);
+    R1 = 9;
+    R2 = currentPID;
+    call MOD_0;
+    multipop(R0, R1, R2, R3);
+    return;
+endif;
+
+// Terminal Read
+if (functionNum == 4) then
+    multipush(R0, R1, R2, R3);
+    R1 = 8;
+    R2 = currentPID;
+    call MOD_0; // Call resource manager module.
+    multipop(R0, R1, R2, R3);
+
+    read;
+
+    // Change the state of the current process to WAIT_TERMINAL.
+    [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_TERMINAL;
+
+
+    multipush(R0, R1, R2, R3);
+    call MOD_5; // Invoke the scheduler.
+    multipop(R0, R1, R2, R3);
+    R3 = [PTBR + 2 * (R3 / 512)] * 512 + (R3 % 512);
+    [R3] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 8];
+    return;
+
+endif;
+
+
+return;
+
+

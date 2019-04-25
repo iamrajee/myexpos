@@ -1,0 +1,8 @@
+ExpL compiler for ExpOS
+
+Usage 
+----------
+
+ ./expl <path to ExpL program>
+ cd xsm_expl/
+ ./xsm -e ../assemblycode.xsm

@@ -1,0 +1,24 @@
+//================INT 10 module=====================
+print "INT 10";
+// Change the state of the invoking process to TERMINATED
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1]*16 + 4] = TERMINATED;
+
+alias i R0;
+alias count R1;
+i = 1;
+count = 1;
+
+while(i < MAX_PROC_NUM) do
+	if([PROCESS_TABLE + 16*i + 4] == TERMINATED) then
+		count = count + 1;
+	endif;
+	i = i + 1;
+endwhile;
+
+if(count == MAX_PROC_NUM) then
+	// halt the machine
+	halt;
+endif;
+
+// invoke the context switch module (scheduler)
+call MOD_5;

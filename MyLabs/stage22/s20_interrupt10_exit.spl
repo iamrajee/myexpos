@@ -1,0 +1,12 @@
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 10;       //system call number for exit process is 10
+    [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)] = SP;
+    SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;
+
+    //call the exit process from the process_manager_module
+    R1 = 3;          //function number
+    R2 = [SYSTEM_STATUS_TABLE + 1];         //pid of the process
+    call MOD_1;                            //this is to call the process manager module 
+
+    //calling the scheduler
+    call MOD_5;                     //since this is the exiting of the process so this will never be called 
+                                    

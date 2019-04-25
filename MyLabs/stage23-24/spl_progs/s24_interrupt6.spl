@@ -1,0 +1,175 @@
+alias systemNum R14;
+alias userSP R15;
+alias counter R13;      
+alias pentryAd R12;             //process entry
+alias retAddr R11;              //this is the return address
+
+//userSP-5 is the position that stores the system call number
+    userSP = SP;
+    systemNum = [([PTBR + 2 * ((userSP - 5) / 512) ] * 512 )  + ((userSP - 5) % 512)];
+
+
+    pentryAd = PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16;
+    retAddr = ([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512);
+
+//this is to switch to the kernel stack
+    [pentryAd + 13] = SP;   
+    SP = [pentryAd + 11] * 512 - 1;
+
+
+//set the mode flag to 7
+    [pentryAd + 9] = 7;             //for the read system call
+
+
+
+//getting the value of the argument
+alias fileDescriptor R10;
+alias buffer_address R9;
+
+fileDescriptor = [([PTBR + 2 * ((userSP - 4) / 512) ] * 512 )  + ((userSP - 4) % 512)];
+buffer_address = [([PTBR + 2 * ((userSP - 3) / 512) ] * 512 )  + ((userSP - 3) % 512)];
+
+//if the input is from the terminal
+if (fileDescriptor == -1) then
+
+    //call the terminal function
+    multipush (R9, R10 , R11, R12 , R13 , R14 , R15);
+    R1 = 4;             //function number for the terminal read
+    R2 = [SYSTEM_STATUS_TABLE + 1];
+    R3 = buffer_address;
+    call MOD_4;
+    multipop (R9 , R10 , R11 , R12 , R13 , R14 , R15);
+
+else
+    //this is to read from the file
+
+    //if file fileDescriptor is invalid then return -1ss
+    if (fileDescriptor <0 || fileDescriptor > 7) then
+        [retAddr] = -1;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    //per process entry
+    alias perProcess R8;
+    perProcess = [pentryAd + 11] * 512 + RESOURCE_TABLE_OFFSET;
+
+    //fileDescriptor is the entry in the per process table entry
+    if ([perProcess + fileDescriptor * 2 + 0] != FILE ) then
+        [retAddr] = -1;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;    
+    endif;
+
+    alias open_file_index R7;
+    open_file_index = [perProcess + fileDescriptor * 2 + 1];
+
+    alias inode_index R6;
+    inode_index = [OPEN_FILE_TABLE + 4 * open_file_index + 0];
+
+    //acquire the inode_index
+    multipush (R6 , R7 , R8 , R9, R10 , R11, R12 , R13 , R14 , R15);
+    R1 = 4;             //function number for the acquire inode
+    R2 = inode_index;
+    R3 = [SYSTEM_STATUS_TABLE + 1];
+    call MOD_0;
+    multipop (R6 , R7 , R8 , R9 , R10 , R11 , R12 , R13 , R14 , R15);
+
+    //this is to return -1 if fail to acquire the inode
+    if (R0 != 0) then
+        [retAddr] = -1;
+        [pentryAd + 9] = 0;
+        SP = userSP;
+        ireturn;    
+    endif;
+
+    alias lseek R5;
+    lseek = [OPEN_FILE_TABLE + 4 * open_file_index + 2];
+
+    //we are given the logical address so get the real physical address
+    alias word_address R4;
+    word_address = ([PTBR + 2 * (buffer_address / 512) ] * 512 )  + (buffer_address % 512);
+
+    if (inode_index == INODE_ROOT) then
+        if (lseek == 480 ) then          //lseek is equal to the size of the root file
+            
+               //release the inode and then return -2;
+                multipush (R4 , R5,R6 , R7 , R8 , R9, R10 , R11, R12 , R13 , R14 , R15);
+                R1 = 5;             //function number for the release inode
+                R2 = inode_index;
+                R3 = [SYSTEM_STATUS_TABLE + 1];
+                call MOD_0;
+                multipop (R4 , R5 , R6 , R7 , R8 , R9 , R10 , R11 , R12 , R13 , R14 , R15);
+
+                //return -2
+                [retAddr] = -2;
+                [pentryAd + 9] = 0;
+                SP = userSP;
+                ireturn;    
+        endif;
+
+        //read from the word at lseek position and then put it on word address
+        [buffer_address] = [ROOT_FILE + lseek];
+
+        //increment the lseek position
+        [OPEN_FILE_TABLE + 4 * open_file_index + 2] = [OPEN_FILE_TABLE + 4 * open_file_index + 2] + 1;
+    
+    else
+        //if the lseek is equal to file size then release the inode and return -2
+        if (lseek == [INODE_TABLE + 16 * inode_index + 2]) then
+                         
+                //release the inode and then return -2;
+                multipush (R4 , R5,R6 , R7 , R8 , R9, R10 , R11, R12 , R13 , R14 , R15);
+                R1 = 5;             //function number for the release inode
+                R2 = inode_index;
+                R3 = [SYSTEM_STATUS_TABLE + 1];
+                call MOD_0;
+                multipop (R4 , R5 , R6 , R7 , R8 , R9 , R10 , R11 , R12 , R13 , R14 , R15);
+
+                //return -2
+                [retAddr] = -2;
+                [pentryAd + 9] = 0;
+                SP = userSP;
+                ireturn; 
+
+        endif;
+
+        alias block_index R1;
+        alias disk_block_number R2;
+        alias offset R3;
+
+        block_index = lseek / 512;
+        disk_block_number = [INODE_TABLE + 16 * inode_index + 8 + block_index];
+        offset = lseek % 512;
+
+        //calling the buffer read module
+        multipush (R1 , R2 , R3 , R4 , R5,R6 , R7 , R8 , R9, R10 , R11, R12 , R13 , R14 , R15);
+        R1 = 2;              //for the buffer read
+        R2 = disk_block_number;
+        R3 = offset;
+        R4 = buffer_address;
+        call MOD_3;
+        multipop (R1 ,R2 ,R3 ,R4 , R5,R6 , R7 , R8 , R9, R10 , R11, R12 , R13 , R14 , R15);
+    
+        [OPEN_FILE_TABLE + 4 * open_file_index + 2] = [OPEN_FILE_TABLE + 4 * open_file_index + 2] + 1;
+        
+    endif;
+
+    //releas the lock
+        multipush (R4 , R5,R6 , R7 , R8 , R9, R10 , R11, R12 , R13 , R14 , R15);
+        R1 = 5;             //function number for the release inode
+        R2 = inode_index;
+        R3 = [SYSTEM_STATUS_TABLE + 1];
+        call MOD_0;
+        multipop (R4 , R5 , R6 , R7 , R8 , R9 , R10 , R11 , R12 , R13 , R14 , R15);
+
+endif;
+
+
+//this is after using all the system call
+[retAddr] = 0;
+[pentryAd + 9] = 0;   //setting the mode flag
+SP = userSP;
+ireturn;

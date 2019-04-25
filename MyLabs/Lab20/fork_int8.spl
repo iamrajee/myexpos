@@ -1,0 +1,150 @@
+//FORK
+//print("fork");
+alias currentPid R4;
+alias childPid R7;
+alias ptbrChild R8;
+alias userSP R10;
+alias counter R2;
+userSP = SP;
+//print(SP);
+//print(PTBR);
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = SP;
+//print([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]);
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]*512) - 1;
+currentPid = [SYSTEM_STATUS_TABLE + 1];
+[PROCESS_TABLE + currentPid *16 + 9] = 8;
+
+//Invoke get pcb entry from process manager module	
+multipush(R1, R2, R3, R4, R5, R6, R7, R8, R10);
+//print("fork1");
+R1 = 1;
+call MOD_1;   //call process manager
+multipop(R1, R2, R3, R4, R5, R6, R7, R8, R10);
+
+//print("fork2");
+//Process table entry is not available
+if(R0 == -1) then
+    alias physicalAddressRetVal R5;
+    physicalAddressRetVal = ([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512);
+    [physicalAddressRetVal] = -1;
+    
+    SP = userSP;                         //setting the user stack
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0; 
+    ireturn;
+endif;
+
+//Proceed to fork system call
+childPid = R0;
+ptbrChild = [PROCESS_TABLE + (childPid*16) + 14];
+
+//Get pages for stack
+counter = 0;
+while(counter < 2) do 
+	// calling get Free Page from Memory Mananger
+	multipush(R1, R2, R3, R4, R5, R6, R7, R8, R10);
+	R1 = 1;
+	call MOD_2;
+	multipop(R1, R2, R3, R4, R5, R6, R7, R8, R10);
+	[ptbrChild + 16 + (counter*2)] = R0;
+	[ptbrChild + 16 + (counter*2) + 1] = "0110";
+	counter = counter + 1;
+endwhile;
+
+//Get page for user area
+multipush(R1, R2, R3, R4, R5, R6, R7, R8, R10);
+R1 = 1;
+call MOD_2;
+multipop(R1, R2, R3, R4, R5, R6, R7, R8, R10);
+[PROCESS_TABLE + (childPid * 16) + 11] =  R0;
+
+//copy userid from parent to child
+[PROCESS_TABLE + (childPid*16) + 3] = [PROCESS_TABLE + (currentPid*16) + 3];
+
+//copy swap_flag(6) from parent to child
+[PROCESS_TABLE + (childPid*16) + 6] = [PROCESS_TABLE + (currentPid*16) + 6];
+
+//copy USER AREA SWAP STATUS(10) from parent to child
+[PROCESS_TABLE + (childPid*16) + 10] = [PROCESS_TABLE + (currentPid*16) + 10];
+
+//copy inode_index(7) from parent to child
+[PROCESS_TABLE + (childPid*16) + 7] = [PROCESS_TABLE + (currentPid*16) + 7];
+
+//copy uptr field(13) from parent to child
+[PROCESS_TABLE + (childPid*16) + 13] = [PROCESS_TABLE + (currentPid*16) + 13];
+
+//Set mode_flag(9), kptr(12) and tick(0) field of child process to 0
+[PROCESS_TABLE + (childPid*16) + 9] = 0;
+[PROCESS_TABLE + (childPid*16) + 12] = 0;
+[PROCESS_TABLE + (childPid*16) + 0] = 0;
+
+//PPID, state of child
+[PROCESS_TABLE + (childPid*16) + 2] = currentPid;
+[PROCESS_TABLE + (childPid*16) + 4] = CREATED;
+
+alias i R11;
+alias j R12;
+i = ([PROCESS_TABLE + (currentPid*16) + 11] * 512) + (512 - 16);
+j = ([PROCESS_TABLE + (childPid*16) + 11] * 512) + (512 - 16);
+counter = 0;
+while(counter < 16) do
+	[j] = [i];
+	counter = counter + 1;
+	j = j + 1;
+	i = i + 1;
+endwhile;
+
+//copy PER-PROCESS_DISK_MAP_TABLE from parent to child
+counter = 0;
+while(counter < 10) do
+	[DISK_MAP_TABLE + (childPid*10) + counter] = [DISK_MAP_TABLE + (currentPid*10) + counter];
+	counter = counter + 1;
+endwhile;
+
+//copy heap, code and library entries from parent pageTable to child
+counter = 0;
+while(counter <= 7) do
+	[ptbrChild + (counter*2)] = [PAGE_TABLE_BASE + (currentPid*20) + (counter*2)];
+	if([ptbrChild + (counter*2)] != -1) then
+		[MEMORY_FREE_LIST + [ptbrChild + (counter*2)]] = [MEMORY_FREE_LIST + [ptbrChild + (counter*2)]] + 1;
+	endif;
+	[ptbrChild + (counter*2) + 1] = [PAGE_TABLE_BASE + (currentPid*20) + (counter*2) + 1];
+	counter = counter + 1;
+endwhile;
+
+//Copy content of the user stack pages of the parent to the user stack pages of the child word by word
+//PAGE1:
+counter = 0;
+alias parentSP R3;
+alias childSP R9;
+parentSP = [PAGE_TABLE_BASE + (currentPid*20) + 16]*512;
+childSP = [PAGE_TABLE_BASE + (childPid*20) + 16]*512;
+
+while(counter < 512) do
+	[childSP + counter] = [parentSP + counter];
+	counter = counter + 1;
+endwhile;
+//PAGE2:
+parentSP = [PAGE_TABLE_BASE + (currentPid*20) + 18]*512;
+childSP = [PAGE_TABLE_BASE + (childPid*20) + 18]*512;
+counter = 0;
+while(counter < 512) do
+	[childSP + counter] = [parentSP + counter];
+	counter = counter + 1;
+endwhile;
+
+//Store BP on top of kernel stack of child Process
+[[PROCESS_TABLE + (childPid * 16) + 11]*512] = BP;
+
+//return values
+alias physicalAddressRetVal R5;
+physicalAddressRetVal = ([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512);
+[physicalAddressRetVal] = childPid;
+
+physicalAddressRetVal = ([ptbrChild + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512);
+[physicalAddressRetVal] = 0;
+
+//switch SP to user stack of parent process
+[PROCESS_TABLE + currentPid *16 + 9] = 0;
+SP = userSP;
+
+ireturn;

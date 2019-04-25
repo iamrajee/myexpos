@@ -1,0 +1,94 @@
+//This is the interrupt to implement the wait, signal , getpid and getppid system calls
+//R14 , R15 , 
+alias systemNum R14;
+alias userSP R15;
+
+//userSP-5 is the position that stores the system call number
+userSP = SP;
+systemNum = [([PTBR + 2 * ((userSP - 5) / 512) ] * 512 )  + ((userSP - 5) % 512)];
+
+//this is to switch to the kernel stack
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 13)] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16 + 11)] * 512 - 1;
+
+
+//system number for wait is 13
+if (systemNum == 13) then 
+
+    //change the mode flag of the process
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = systemNum;
+
+    //userSP - 4 is the first argument of the process
+    alias pid_process R13;
+    pid_process = [([PTBR + 2 * ((userSP - 4) / 512) ] * 512 )  + ((userSP - 4) % 512)];
+
+    //checking for the valid range of the pid
+    if (pid_process < 1 || pid_process > 16 || [PROCESS_TABLE + 16 * pid_process + 4] == TERMINATED || pid_process == [SYSTEM_STATUS_TABLE + 1]) then 
+        [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = -1;
+        [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 0;
+        SP = userSP;
+        ireturn;
+    endif;
+
+    //changing the state of the current process to  the wait_process
+    //setting the state to the tuple 
+    //first element is the WAIT_PROCESS and second element is the pid_process 
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 4] = WAIT_PROCESS;
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 5] = pid_process;
+
+    multipush (R0 , R1 , R2 , R3 , R14,  R15 , R13);
+    call MOD_5;                     //this is the scheduler
+    multipop (R0 , R1 , R2 , R3 , R14 , R15 , R13);
+
+    //the system call is successful
+    [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = 0;
+    [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 0;
+    
+endif;
+
+//14 is the system call number for the signal system call
+if (systemNum == 14) then 
+    
+    //setting the mode flag
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 14;
+
+    alias current_process R13;
+    current_process = 1;
+    while (current_process < 16) do
+        if ([PROCESS_TABLE + current_process * 16 + 4] == WAIT_PROCESS && [PROCESS_TABLE + current_process * 16 + 5] == [SYSTEM_STATUS_TABLE + 1]) then 
+            [PROCESS_TABLE + current_process * 16 + 4] = READY;
+        endif;
+        current_process = current_process + 1;
+    endwhile;
+
+    //the system call is successful
+    [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = 0;
+    [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 0;
+
+endif;
+
+
+//11 is the system call number for pid
+if (systemNum == 11) then 
+
+    //RETURN THE PID OF THE PROCESS
+    [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 11;
+    [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 1];
+    [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 0;
+
+endif;
+//12 is the system call number for the ppid 
+if (systemNum == 12) then 
+    
+    //RETURN THE PPID OF THE PROCESS
+    [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 12;
+    [([PTBR + 2 * ((userSP - 1) / 512) ] * 512 )  + ((userSP - 1) % 512)] = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 2];
+    [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 9] = 0;
+
+endif;
+
+
+//this is after using all the system call
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;   //setting the mode flag
+SP = userSP;
+ireturn;

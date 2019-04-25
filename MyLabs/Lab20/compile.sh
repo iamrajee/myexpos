@@ -1,0 +1,16 @@
+./spl ../MyLabs/Lab20/timer_interrupt.spl
+./spl ../MyLabs/Lab20/read_interrupt_int6.spl
+./spl ../MyLabs/Lab20/write_interrupt_int7.spl
+./spl ../MyLabs/Lab20/device_manager_module4.spl
+./spl ../MyLabs/Lab20/resource_manager_module0.spl
+./spl ../MyLabs/Lab20/boot_module.spl
+./spl ../MyLabs/Lab20/scheduler_module5.spl
+./spl ../MyLabs/Lab20/os_startup.spl
+./spl ../MyLabs/Lab20/int10_module.spl
+./spl ../MyLabs/Lab20/console_interrupt_handler.spl
+./spl ../MyLabs/Lab20/process_manager_module1.spl
+./spl ../MyLabs/Lab20/memory_manager_module2.spl
+./spl ../MyLabs/Lab20/exec_interrupt9.spl
+./spl ../MyLabs/Lab20/disk_interrupt_handler.spl
+./spl ../MyLabs/Lab20/exhandler.spl
+./spl ../MyLabs/Lab20/fork_int8.spl

@@ -1,0 +1,19 @@
+#!/bin/bash
+cp ./compile ../../../spl/
+chmod +x ../../../spl/compile
+cd ../../../spl/ && ./compile
+cd ../Programs/Module22/Main/
+echo "spl compilation done"
+
+cp ./compile_expl ../../../expl/
+chmod +x ../../../expl/compile_expl
+cd ../../../expl/ && ./compile_expl
+cd ../Programs/Module22/Main/
+echo "expl compilation done"
+
+cp ./xfs ../../../xfs-interface/
+chmod +x ../../../xfs-interface/xfs
+cd ../../../xfs-interface/ && ./xfs
+echo "xfs loading done"
+
+cd ../xsm/ && ./xsm --debug --timer 1000

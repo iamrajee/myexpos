@@ -1,0 +1,21 @@
+int main() {
+    decl
+        int x, y, temp, permission;
+        str filename;
+    enddecl
+    begin
+        temp = exposcall ("Write", -2, "filename");
+        temp = exposcall ("Read", -1, filename);
+        temp = exposcall ("Write", -2, "permission");
+        temp = exposcall ("Read", -1, permission);
+        temp = exposcall ("Create", filename, permission);
+        if (temp == -1) then
+            temp = exposcall ("Write", -2, "inode full");
+        endif;
+
+        temp = exposcall ("Delete", filename);
+
+
+        return 0;
+    end
+}

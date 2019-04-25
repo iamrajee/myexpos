@@ -1,0 +1,81 @@
+//===================OS STARTUP CODE======================
+// load idle process from disk to memory
+loadi(69, 11);
+loadi(70, 12);
+
+// load boot module from disk to memory
+loadi(54, 67);
+loadi(55, 68);
+
+// make SP point to the top of user area (for kernel stack)
+SP = 82*512-1;
+
+// call module 7 (boot module) using call statement in SPL
+call MOD_7;
+
+//===========IDLE PROCESS===============
+PTBR = PAGE_TABLE_BASE;
+// Set the User Area page number in the Process Table
+[PROCESS_TABLE + 11] = 82;
+
+// setting uid of the process to be 0 since it is the first process table entry
+[PROCESS_TABLE + 1] = 0;
+
+// setting idle process state as RUNNING
+[PROCESS_TABLE + 4] = RUNNING;
+
+// set UPTR of idle process
+[PROCESS_TABLE + 13] = 8*512;
+
+// set KPTR of idle process
+[PROCESS_TABLE + 12] = 0;
+
+//set PTBR of idle process
+[PROCESS_TABLE + 14] = PAGE_TABLE_BASE;
+
+//set PTLR of idle process
+[PROCESS_TABLE + 15] = 10;
+
+// Library
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+// Heap
+[PTBR + 4] = -1;
+[PTBR + 5] = "0000";
+[PTBR + 6] = -1;
+[PTBR + 7] = "0000";
+
+// Code
+[PTBR + 8]  = 69;
+[PTBR + 9]  = "0100";
+[PTBR + 10] = 70;
+[PTBR + 11] = "0100";
+[PTBR + 12] = -1;
+[PTBR + 13] = "0000";
+[PTBR + 14] = -1;
+[PTBR + 15] = "0000";
+
+// Stack
+[PTBR + 16] = 81;
+[PTBR + 17] = "0110";
+[PTBR + 18] = -1;
+[PTBR + 19] = "0000";
+
+//Set entry point for idle
+[81 * 512] = [69 * 512 + 1];
+//======================================
+
+// defining Machine PTBR and PTLR
+PTBR = PAGE_TABLE_BASE;
+PTLR=10;
+
+// putting uid of the currently running process in SYSTEM_STATUS_TABLE second field
+[SYSTEM_STATUS_TABLE + 1] = 0;
+
+SP = 8*512;
+
+//return back to user mode from kernel mode
+ireturn;

@@ -1,0 +1,14 @@
+yacc -d -v abstree.y
+lex abstree.l
+gcc lex.yy.c y.tab.c -w
+
+./a.out $1
+#exit if compilation fails
+if [ $? -eq 1 ]
+then
+exit 1
+fi
+
+lex ltranslate.l
+gcc lex.yy.c -w
+./a.out

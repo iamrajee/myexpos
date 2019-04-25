@@ -1,0 +1,38 @@
+decl 
+	int gcd(int a, int b);
+enddecl
+
+int gcd(int a, int b) {
+	decl 
+		int out;
+	enddecl
+
+	begin
+		write("a");
+		write(a);
+		write("b");
+		write(b);
+		if(a == 0) then
+			out = b;
+		else 
+			out = gcd((b%a), a);
+		endif;
+		return out;
+	end
+}
+
+int main() {
+	decl
+		int a, b, out;
+	enddecl
+	begin 
+		write("Enter a :");
+		read(a);
+		write("Enter b :");
+		read(b);
+		out = gcd(a, b);
+		write("out");
+		write(out);
+		return 0;
+	end
+}

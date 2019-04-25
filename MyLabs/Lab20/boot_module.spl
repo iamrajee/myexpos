@@ -1,0 +1,184 @@
+//====================BOOT MODULE=====================
+//print "boot module";
+// load init program from disk (7, 8) to memory (65, 66)
+loadi(65, 7);
+loadi(66, 8);
+
+// load the INT10 module from the disk to the memory
+loadi(22,35);
+loadi(23,36);
+
+// load the exception handler routine from the disk to the memory
+loadi(2, 15);
+loadi(3, 16);
+
+// load library module from disk to memory
+loadi(63, 13);
+loadi(64, 14);
+
+// load timer interrupt module from disk (block 17, 18) to memory (page 4, 5)
+loadi(4, 17);
+loadi(5, 18);
+
+// load interrupt 7 from disk to memory
+loadi(16,29);
+loadi(17,30);
+
+// load scheduler from disk to memory
+loadi(50,63);
+loadi(51,64);
+
+// load Module 0 from disk pages 53 and 54 to memory pages 40 and 41
+loadi(40, 53);
+loadi(41, 54);
+
+// load Module 4 from disk pages 61 and 62 to memory pages 48 and 49
+loadi(48, 61);
+loadi(49, 62);
+
+// load console interrupt handler from disk to memory
+loadi(8, 21);
+loadi(9, 22);
+
+// load interrupt 6 from disk to memory
+loadi(14, 27);
+loadi(15, 28);
+
+// load interrupt 9 from disk to memory
+loadi(20, 33);
+loadi(21, 34);
+
+// load process manager (module 1) from disk to memory
+loadi(42, 55);
+loadi(43, 56);
+
+// load memory manager (module 2) from disk to memory
+loadi(44, 57);
+loadi(45, 58);
+
+// load inode table from dist to memory
+loadi(59, 3);
+loadi(60, 4);
+
+// load disk interrupt handler from disk to memory
+loadi(6, 19);
+loadi(7, 20);
+
+// load the Disk Free List from the disk block 2 to the memory page 61.
+loadi(61, 2);
+
+// load fork module (interrupt routine 8) from disk to memory
+loadi(18, 31);
+loadi(19, 32);
+
+// initialize the STATUS field in the Terminal Status table as 0
+[TERMINAL_STATUS_TABLE] = 0;
+
+// initialize the STATUS field in the Disk Status Table to 
+[DISK_STATUS_TABLE] = 0;
+
+//==============INIT PROCESS===============
+
+// USING 76-80 pages in memory
+
+// Set the User Area page number in the Process Table
+[(PROCESS_TABLE + 16) + 11] = 80;
+
+[(PROCESS_TABLE + 16) + 1] = 1;
+
+// setting init process state as CREATED
+[(PROCESS_TABLE + 16) + 4] = CREATED;
+
+// set UPTR of init process
+[(PROCESS_TABLE + 16) + 13] = 8*512;
+
+// set KPTR of init process
+[(PROCESS_TABLE + 16) + 12] = 0;
+
+//set PTBR of init process
+[(PROCESS_TABLE + 16) + 14] = PAGE_TABLE_BASE + 20;
+
+//set PTLR of init process
+[(PROCESS_TABLE + 16) + 15] = 10;
+
+// define Page table
+PTBR = PAGE_TABLE_BASE + 20;
+PTLR=10;
+
+// put library module into logical page 0 and 1
+[PTBR+0] = 63;
+[PTBR+1] = "0100";
+[PTBR+2] = 64;
+[PTBR+3] = "0100";
+
+//put heap memory into logical page 2 and 3
+[PTBR+4] = 78;
+[PTBR+5] = "0110";
+[PTBR+6] = 79;
+[PTBR+7] = "0110";
+
+//put code in logical page 4 and 5
+[PTBR+8] = 65;
+[PTBR+9] = "0100";	//DON'T allow user to write
+[PTBR+10] = 66;
+[PTBR+11] = "0100";
+[PTBR+12] = -1;
+[PTBR+13] = "0000";
+[PTBR+14] = -1';
+[PTBR+15] = "0000";
+
+//put stack in logical page 8 and 9
+[PTBR+16] = 76;
+[PTBR+17] = "0110";
+[PTBR+18] = 77;
+[PTBR+19] = "0110";
+
+// set entry point for init
+[76*512] = [65*512+1];
+
+// initialize per process resource table for init
+alias j R0;
+alias i R1;
+i = [(PROCESS_TABLE + 16) + 11] * 512 + (512 - 16);
+j = 0;
+while(j < 16) do
+	[i] = -1;
+	i = i + 1;
+	j = j + 1;
+endwhile;
+
+//=========================================
+
+i = 2;
+while(i < MAX_PROC_NUM) do
+	[(PROCESS_TABLE + (16*i))+4] = TERMINATED;
+	i = i + 1;
+endwhile;
+
+// Initialize the memory free list with value 1 for pages used and 0 for free pages
+i = 0;
+while(i < 128) do
+	if(i <= 82) then
+		[MEMORY_FREE_LIST + i] = 1;
+	else 
+		[MEMORY_FREE_LIST + i] = 0;
+	endif;
+	i = i + 1;
+endwhile;
+
+// Initialize the disk map table entries for the INIT process
+i = 0;
+while(i <= 9) do
+	[DISK_MAP_TABLE + 16 + i] = -1;
+	if((i >= 4) && (i <= 7)) then
+		[DISK_MAP_TABLE + 16 + i] = [PTBR + (2*i)];
+	endif;
+	i = i + 1;
+endwhile;
+
+[SYSTEM_STATUS_TABLE + 3] = 0;
+[SYSTEM_STATUS_TABLE + 2] = (128-1) - 82;
+
+//print "return";
+// return back to os startup code
+return;

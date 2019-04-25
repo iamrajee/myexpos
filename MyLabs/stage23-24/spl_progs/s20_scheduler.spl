@@ -1,0 +1,84 @@
+//obtain the current pid
+
+
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+
+//push the BP on top of the current stack
+multipush (BP);
+
+alias process_table_entry R1;
+process_table_entry = PROCESS_TABLE + currentPID * 16;
+
+//saving the values in the corresponding process PROCESS_TABLE
+[process_table_entry + 12] = SP % 512;
+[process_table_entry + 14] = PTBR;
+[process_table_entry + 15] = PTLR;
+
+//this is to select the newProcess pid that is in the ready or the created state
+alias newPID R2;
+newPID = -1;
+alias process_number R3;
+process_number = currentPID + 1;
+while (process_number != currentPID) do
+    if ([PROCESS_TABLE + 16 * process_number + 4] == CREATED) then 
+        newPID = process_number;
+        break;
+    endif;
+    if ([PROCESS_TABLE + 16 * process_number + 4] == READY) then 
+        newPID = process_number;
+        break;
+    endif;
+
+    if (process_number == 15) then
+        process_number = 0;
+    else
+        process_number = process_number + 1;
+    endif;
+endwhile;
+
+
+//0 is the idle process ; 1 is the init process and 2 is the exec process
+if (newPID == -1) then
+newPID = 0;             //0 is the idle process
+endif;
+
+
+alias new_process_table R4;
+new_process_table = PROCESS_TABLE + newPID * 16;
+
+
+//saving the SP
+//11 gives the user page area and 12 stores the KPTR
+SP = [new_process_table + 11] * 512 + [new_process_table + 12];
+
+//restore the PTBR and PTLR values
+PTBR = [new_process_table + 14];
+PTLR = [new_process_table + 15];
+
+//setting the PID of the new process
+[SYSTEM_STATUS_TABLE + 1] = newPID;
+//print "new process";
+//print newPID;
+//print [new_process_table + 4];
+
+if ([new_process_table + 4] == CREATED) then
+    
+    SP = [new_process_table + 13];
+    //print (SP);
+    BP = [[new_process_table + 11] * 512];           //12 is the kernel stack
+                                                   //setting the value of BP to the top of the kernel stack
+    
+    [new_process_table + 4] = RUNNING;
+    [new_process_table + 9] = 0;            //this is the mode flag
+
+    ireturn;
+endif;
+
+[new_process_table + 4] = RUNNING;
+
+//restoring the BP
+multipop (BP);
+
+//return using the return statement
+return;

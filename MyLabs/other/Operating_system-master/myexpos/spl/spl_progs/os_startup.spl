@@ -1,0 +1,33 @@
+//this is the os_start code 
+//loading the init program
+loadi(65 , 7);
+loadi(66 , 8);
+
+//loading the interrupt - 10
+loadi(22 , 35);
+loadi(23 , 36);
+
+//loading the exception handler
+loadi(2 , 15);
+loadi(3, 16);
+
+//setting the page table
+//two for code and one for stack
+PTBR = PAGE_TABLE_BASE;
+PTLR = 3;
+
+//setting the valid bits
+[PTBR + 0] = 65;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 66;
+[PTBR + 3] = "0100";
+[PTBR + 4] = 76;
+[PTBR + 5] = "0110";
+
+//setting the stack pointer
+[76 * 512] = 0;
+SP = 2 * 512;
+
+//to transfer control the user program
+ireturn;
+

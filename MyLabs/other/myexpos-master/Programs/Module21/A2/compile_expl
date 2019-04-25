@@ -1,0 +1,12 @@
+./expl ../Programs/Module21/A2/odd.expl
+mv assemblycode.xsm ../Programs/Module21/A2/odd.xsm
+./expl ../Programs/Module21/A2/even.expl
+mv assemblycode.xsm ../Programs/Module21/A2/even.xsm
+./expl ../Programs/Module21/A2/idle.expl
+mv assemblycode.xsm ../Programs/Module21/A2/idle.xsm
+./expl ../Programs/Module21/A2/init.expl
+mv assemblycode.xsm ../Programs/Module21/A2/init.xsm
+./expl ../Programs/Module21/A2/pid.expl
+mv assemblycode.xsm ../Programs/Module21/A2/pid.xsm
+./expl ../Programs/Module21/A2/fork3.expl
+mv assemblycode.xsm ../Programs/Module21/A2/fork3.xsm

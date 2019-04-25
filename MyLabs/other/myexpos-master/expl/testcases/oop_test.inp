@@ -1,0 +1,41 @@
+class
+	A {
+		int f1(int x)
+		{
+			decl
+				int a;
+			enddecl
+			begin
+				read(a);
+				a = a+5;
+				write(a);
+				return 0;
+			end
+		}
+
+		int f2(int a,int b)
+		{
+			decl
+				int y;
+			enddecl
+			begin
+				return a+b;
+			end
+		}
+	}
+
+	
+endclass
+int main()
+{
+	decl
+		int x;
+	enddecl
+	begin
+		read(x);
+		x = x+15;
+		write(x);
+
+		return 0;
+	end
+}

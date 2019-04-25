@@ -1,0 +1,33 @@
+decl
+	integer f(integer x),a;
+enddecl
+integer f(integer x)
+{
+	decl
+		integer a,result;
+	enddecl
+	begin
+		if(x >= 200) then
+			result = 200;
+		else 
+			if(x >= 100) then
+				result = f(1 + f(10 + x));
+			else
+				result = f(1 + f(10 + f(10 + x)));
+			endif;
+		endif;
+		return result; 
+	end
+}
+integer main()
+{
+	decl
+		integer r;
+	enddecl
+	begin
+		read(a);
+		r = f(a);
+		write(r);
+		return 0;
+	end
+}

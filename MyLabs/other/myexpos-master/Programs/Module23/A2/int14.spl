@@ -1,0 +1,112 @@
+// int 11 
+//The system calls Semget and Semrelease
+
+alias syscall R5;
+alias userSP R6;
+alias pid R7;
+
+pid = [SYSTEM_STATUS_TABLE + 1];
+userSP = SP;
+
+[PROCESS_TABLE + pid * 16 + 13] = SP;
+SP = [PROCESS_TABLE + pid * 16 + 11] * 512 - 1;
+
+// At the beginning of interrupt routine 14, extract the system call number from the user stack and switch to the kernel stack.
+syscall = [[PTBR + 2 * ((userSP - 5) / 512)] * 512 + (userSP - 5) % 512];
+
+//SemLock system call 
+// Arguments: Semaphore Descriptor (Integer)
+if (syscall == 19) then
+	// Set the MODE_FLAG in the Process Table to 19 and switch to kernel stack.
+	[PROCESS_TABLE + pid * 16 + 9] = 19;
+	
+	// If Semaphore descriptor is not valid or the entry in the Per Process Resource Table is not valid, return -1. 
+	// /* The descriptor is invalid if not in the range 0 - 7, or if the resource identifier field of the table entry is not 1 */
+	alias semaDesc R8;
+	semaDesc = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];
+
+	if (semaDesc < 0 || semaDesc > 7 || [[PROCESS_TABLE + 16 * pid + 11] * 512 + 512 - 16 + 2 * semaDesc] != 1) then
+		[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = -1;
+		[PROCESS_TABLE + pid * 16 + 9] = 0;
+		SP = [PROCESS_TABLE + pid * 16 + 13];
+		ireturn;
+	endif;
+
+	alias index R9;
+	index = [[PROCESS_TABLE + 16 * pid + 11] * 512 + 512 - 16 + 2 * semaDesc + 1];
+
+	// while the semaphore is locked by a process other than the current process do    /* Check the Locking PID field in the Semaphore table */
+	while ([SEMAPHORE_TABLE + 4 * index] != -1 && [SEMAPHORE_TABLE + 4 * index] != pid) do
+		// Change the state of the current process to (WAIT_SEMAPHORE, Semaphore table index of the locked semaphore).
+		[PROCESS_TABLE + 16 * pid + 4] = WAIT_SEMAPHORE;
+		[PROCESS_TABLE + 16 * pid + 5] = index;
+		
+		// Invoke the switch_context() function in the Scheduler Module.
+		multipush(R5, R6, R7, R8, R9);
+		call MOD_5;
+		multipop(R5, R6, R7, R8, R9);
+	endwhile;
+
+	// Change the Locking PID to PID of the current process in the Semaphore Table .
+	[SEMAPHORE_TABLE + 4 * index] = pid;
+
+	// return 0
+	[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = 0;
+
+endif;
+
+// SemUnLock system call 
+// Arguments: Semaphore Descriptor (Integer)
+if (syscall == 20) then
+	// Set the MODE_FLAG in the Process Table to 20 and switch to kernel stack.
+	[PROCESS_TABLE + pid * 16 + 9] = 20;
+	
+	// If Semaphore descriptor is not valid or the entry in the Per Process Resource Table is not valid, return -1. 
+// /* The descriptor is invalid if not in the range 0 - 7, or if the resource identifier field of the table entry is not 1 */
+	alias semaDesc R8;
+	semaDesc = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];
+
+	if (semaDesc < 0 || semaDesc > 7 || [[PROCESS_TABLE + 16 * pid + 11] * 512 + 512 - 16 + 2 * semaDesc] != 1) then
+		[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = -1;
+		[PROCESS_TABLE + pid * 16 + 9] = 0;
+		SP = [PROCESS_TABLE + pid * 16 + 13];
+		ireturn;
+	endif;
+
+	alias index R9;
+	index = [[PROCESS_TABLE + 16 * pid + 11] * 512 + 512 - 16 + 2 * semaDesc + 1];
+
+	// If semaphore is locked. /* Check the Locking PID in the Semaphore table */
+	if ([SEMAPHORE_TABLE + 4 * index] != -1) then
+		// If current process has not locked the semaphore, return -2.   /* The semaphore is locked by some other process.*/
+		if ([SEMAPHORE_TABLE + 4 * index] != pid) then
+			[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = -2;
+			[PROCESS_TABLE + pid * 16 + 9] = 0;
+			SP = [PROCESS_TABLE + pid * 16 + 13];
+			ireturn;
+		endif;
+
+		//  Set the Locking PID to -1.   /* Unlock the semaphore. */
+		[SEMAPHORE_TABLE + 4 * index] = -1;
+
+		alias iter R10;
+		iter = 0;
+		//  Loop through the process table and change the state to (READY, _ ) for all the processes 
+	    //  in the state (WAIT_SEMAPHORE, Semaphore table index of the locked semaphore). 
+		while (iter < MAX_PROC_NUM) do
+			if ([PROCESS_TABLE + 16 * iter + 4] == WAIT_SEMAPHORE && [PROCESS_TABLE + 16 * iter + 5] == index) then
+				[PROCESS_TABLE + 16 * iter + 4] = READY;
+			endif;
+			iter = iter + 1;
+		endwhile;
+	endif;
+
+	// return 0
+	[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = 0;
+
+endif;
+
+[PROCESS_TABLE + pid * 16 + 9] = 0;
+SP = [PROCESS_TABLE + pid * 16 + 13];
+
+ireturn;

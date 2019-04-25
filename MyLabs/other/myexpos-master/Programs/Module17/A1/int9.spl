@@ -1,0 +1,146 @@
+// Saving user stack and changing to kernel stack.
+alias userSP R0;
+userSP = SP;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = userSP;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+//setting the MODE flag in the process table of the calling process
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+
+// getting the file name from user stack which is the 1st and only argument.
+alias fileDescriptor R4;
+fileDescriptor = [([PTBR + 2 * ((userSP - 4) / 512)] * 512) + ((userSP - 4) % 512)];
+
+//  MAX_FILE_NUM = 60.
+// FILE TYPE	FILE NAME	FILE SIZE	USER ID	PERMISSION	Unused (3 words)	
+// DATA BLOCK 1	DATA BLOCK 2	DATA BLOCK 3	DATA BLOCK 4	Unused (4 words)
+// MAX_FILE_BLOCKS = 4. Each Inode table entry consists of 16 words of which the 7 are unused in the present version of eXpOS.
+// SPL constant INODE_TABLE points to the starting address of the table.
+
+alias iter R5;
+iter = 0;
+alias inode_index R8;
+inode_index = -1;
+
+// Search the memory copy of the inode table for the file,
+while(iter < MAX_FILE_NUM) do
+    alias state R7;
+    state = INODE_TABLE + 16 * iter;
+    if([state + 1] == fileDescriptor) then
+        if([state + 0] == EXEC) then
+            inode_index = iter;
+        endif;
+        break;
+    endif;
+    iter = iter + 1;
+endwhile;
+
+// If the file is not present or file is not in XEXE 
+// format return to user mode with return value -1 indicating failure
+if (inode_index == -1) then
+    alias physicalAddrRetVal R5;
+    physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+    [physicalAddrRetVal] = -1;
+else
+    alias pid R6;
+    pid = [SYSTEM_STATUS_TABLE + 1]; 
+
+    // Call the Exit Process function in process manager module to
+    // deallocate the resources and pages of the current process.
+    multipush(R0, R6, R8);
+    R1 = 3;
+    R2 = pid;
+    call MOD_1;
+    multipop(R0, R6, R8);
+
+    // Reclaim the same page by incrementing the memory free list entry of user area 
+    // page and decrementing the MEM_FREE_COUNT field
+    [MEMORY_FREE_LIST + [PROCESS_TABLE + 16 * pid + 11]] = 1;
+    [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+    // Set the SP to the start of the user area page to intialize the kernel stack of the new process.
+    SP = [PROCESS_TABLE + pid * 16 + 11] * 512 - 1;
+
+    // Update the STATE field to RUNNING and store inode index obtained above in the inode index 
+    // field in the process table.
+    [PROCESS_TABLE + pid * 16 + 4] = RUNNING;
+    [PROCESS_TABLE + pid * 16 + 7] = inode_index;
+
+    // Set the library page entries in the page table.
+    //Library
+    PTBR = PAGE_TABLE_BASE + pid * 20;
+    PTLR = 10;
+    [PTBR+0] = 63;
+    [PTBR+1] = "0100";
+    [PTBR+2] = 64;
+    [PTBR+3] = "0100";
+
+    // Invoke the Get Free Page function to allocate 2 stack and 2 heap pages.
+    multipush(R0, R6, R8);
+    R1 = 1;
+    call MOD_2;
+    //Heap
+    [PTBR+4] = R0;
+    [PTBR+5] = "0110";
+
+    R1 = 1;
+    call MOD_2;
+    [PTBR+6] = R0;
+    [PTBR+7] = "0110";
+
+    //Stack
+    R1 = 1;
+    call MOD_2;
+    [PTBR+16] = R0;
+    [PTBR+17] = "0110";
+    R1 = 1;
+    call MOD_2;
+    [PTBR+18] = R0;
+    [PTBR+19] = "0110";
+
+    multipop(R0, R6, R8);
+    alias codeSize R3;
+
+    // Find out the number of blocks occupied by the file from inode table.
+    codeSize = ([INODE_TABLE + 16 * inode_index + 2] + 511) / 512;
+
+    // Allocate same number of code pages by invoking the Get Free Page function and 
+    // update the page table entries.
+    iter = 0;
+    multipush(R0, R3, R5, R6, R8);
+    while(iter < codeSize) do
+        //Code
+        multipush(R3, R5);
+        R1 = 1;
+        call MOD_2;
+        [PTBR + 8 + iter * 2] = R0;
+        [PTBR + 8 + iter*2 + 1] = "0100";
+        multipop(R3, R5);
+        iter = iter + 1;
+    endwhile;
+    while (iter < 4) do
+        multipush(R5);
+        [PTBR + 8 + iter * 2] = -1;
+        [PTBR + 8 + iter * 2 + 1] = "0000";
+        multipop(R5);
+        iter = iter + 1;
+    endwhile;
+    multipop(R0, R3, R5, R6, R8);
+    
+    // Load the code blocks from the disk to the memory pages using loadi statement.
+    iter = 0;
+    while (iter < codeSize) do
+        loadi([PTBR + 8 + iter * 2], [INODE_TABLE + 16 * inode_index + 8 + iter]);
+        iter = iter + 1;
+    endwhile;
+
+    //Storing the IP in the top of the user stack and setting the SP
+    [[PTBR+16] * 512] = [[PTBR + 8] * 512 + 1];
+
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = 8 * 512;
+endif;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+
+ireturn;

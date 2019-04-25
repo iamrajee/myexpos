@@ -1,0 +1,16 @@
+int main() {
+    decl
+        int x, y, z, a, b, c, d;
+    enddecl
+    begin
+        x = exposcall("Read", -1, a);
+        y = exposcall("Read", -1, b);
+        while (b != 0) do
+            c = b;
+            b = a % b;
+            a = c;
+        endwhile;
+        z = exposcall("Write", -2, a);
+        return 0;
+    end
+}

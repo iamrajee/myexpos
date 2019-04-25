@@ -1,0 +1,167 @@
+// fork system call
+
+// Saving user stack and changing to kernel stack.
+alias userSP R9;
+userSP = SP;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = userSP;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+//setting the MODE flag in the process table of the calling process
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 8;
+
+// To get a new PID for the child process, invoke the Get Pcb Entry function from the process manager module.
+multipush(R9);
+R1 = 1;
+call MOD_1;
+multipop(R9);
+
+// If a free process table is not available, Get Pcb Entry returns -1
+if (R0 == -1) then
+    alias physicalAddrRetVal R5;
+    physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+    [physicalAddrRetVal] = -1;
+else 
+    alias newPid R5;
+    newPid = R0;
+    alias newPTBR R8;
+    newPTBR = PAGE_TABLE_BASE + 20 * newPid;
+    alias newProcess R10;
+    newProcess = PROCESS_TABLE + 16 * newPid;
+
+    // The child process requires new memory pages for stack (two) and user area page (one).
+    // STACK
+    multipush(R5, R8, R9, R10);
+    R1 = 1;
+    call MOD_2;
+    multipop(R5, R8, R9, R10);
+    [newPTBR + 16] = R0;
+    [newPTBR + 17] = "0110";
+    multipush(R5, R8, R9, R10);
+    R1 = 1;
+    call MOD_2;
+    multipop(R5, R8, R9, R10);
+    [newPTBR + 18] = R0;
+    [newPTBR + 19] = "0110";
+    // USER AREA PAGE
+    multipush(R5, R8, R9, R10);
+    R1 = 1;
+    call MOD_2;
+    multipop(R5, R8, R9, R10);
+    [newPTBR + 11] = R0;
+
+    if ([PTBR + 5] != [PTBR + 7]) then
+        breakpoint;
+        print "heap diff";
+    endif;
+
+    // If the heap pages are not assigned for the parent process, allocate heap pages
+    // by invoking the Get Free Page function of the memory manager
+    if ([PTBR + 5] == "0000") then
+        multipush(R5, R8, R9, R10);
+        R1 = 1;
+        call MOD_2;
+        multipop(R5, R8, R9, R10);
+        [newPTBR + 4] = R0;
+        [newPTBR + 5] = "0110";
+        multipush(R5, R8, R9, R10);
+        R1 = 1;
+        call MOD_2;
+        multipop(R5, R8, R9, R10);
+        [newPTBR + 6] = R0;
+        [newPTBR + 7] = "0110";
+    else 
+        [newPTBR + 4] = [PTBR + 4];
+        [newPTBR + 5] = "0110";
+        [newPTBR + 6] = [PTBR + 6];
+        [newPTBR + 7] = "0110";
+        [MEMORY_FREE_LIST + [newPTBR + 4]] = [MEMORY_FREE_LIST + [newPTBR + 4]] + 1;
+        [MEMORY_FREE_LIST + [newPTBR + 6]] = [MEMORY_FREE_LIST + [newPTBR + 6]] + 1;
+    endif;
+
+    alias oldProcess R11;
+    oldProcess = PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1];
+
+    // Copy the USERID field from the process table of the parent to the child process
+    [newProcess + 3] = [oldProcess + 3];
+    // Similarly, copy the SWAP FLAG and the USER AREA SWAP STATUS fields.
+    [newProcess + 6] = [oldProcess + 6];
+    [newProcess + 10] = [oldProcess + 10];
+    //  INODE INDEX and UPTR field  
+    [newProcess + 7] = [oldProcess + 7];
+    [newProcess + 13] = [oldProcess + 13];
+    // Set the MODE FLAG, KPTR and TICK fields of the child process to 0
+    [newProcess + 9] = 0;
+    [newProcess + 12] = 0;
+    [newProcess + 0] = 0;
+    // PID of the parent is stored in the PPID field of the process table of the child.
+    [newProcess + 2] = [SYSTEM_STATUS_TABLE + 1];
+    //  STATE of the child process is set to CREATED.
+    [newProcess + 4] = CREATED;
+    // Store the new memory page number obtained for user area page in the USER AREA PAGE NUMBER field in the process table of the child proces.
+    // Already done.
+    // PID, PTBR and PTLR fields of the child process are already initialized in the Get Pcb Entry function.
+    // It is not required to initialize INPUT BUFFER.
+
+    // we need to copy the entries of the per-process resource table of the parent to the child.
+    // Since we have not added files or semaphores so far to the OS, we will skip 
+    // this work for the time being and complete the pending tasks in later stages).
+
+    alias iter R7;
+    // Copy the per-process disk map table of the parent to the child.
+    iter = 0;
+    while (iter < 10) do
+        [DISK_MAP_TABLE + newPid * 10 + iter] = [DISK_MAP_TABLE + [SYSTEM_STATUS_TABLE + 1] * 10 + iter];
+        iter = iter + 1;
+    endwhile;
+
+    
+    // Initialize the page table of the child process.
+    // As heap, code and library pages are shared by the parent process and the child process, copy these entries
+    // heap already done.
+
+    // library
+    iter = 0;
+    while (iter < 4) do
+        [newPTBR + iter] = [PTBR + iter];
+        [newPTBR + iter + 1] = [PTBR + iter + 1];
+        if ([newPTBR + iter] != -1) then
+            [MEMORY_FREE_LIST + [newPTBR + iter]] = [MEMORY_FREE_LIST + [newPTBR + iter]] + 1;
+        endif;
+        iter = iter + 2;
+    endwhile;
+
+    // code pages
+    iter = 8;
+    while (iter < 16) do
+        [newPTBR + iter] = [PTBR + iter];
+        [newPTBR + iter + 1] = [PTBR + iter + 1];
+        if ([newPTBR + iter] != -1) then
+            [MEMORY_FREE_LIST + [newPTBR + iter]] = [MEMORY_FREE_LIST + [newPTBR + iter]] + 1;
+        endif;
+        iter = iter + 2;
+    endwhile;
+
+    // Copy content of the user stack pages of the parent to the user stack pages of the child word by word.
+    iter = 0;
+    while (iter < 512) do
+        [[newPTBR + 16] * 512 + iter] = [[PTBR + 16] * 512 + iter];
+        [[newPTBR + 18] * 512 + iter] = [[PTBR + 18] * 512 + iter];
+        iter = iter + 1;
+    endwhile;
+
+    // Store the value in the BP register on top of the kernel stack of child process.
+    [[newPTBR + 11] * 512] = BP;
+    // [newProcess + 12] = 1; // Not quite sure of this one.
+
+    // Set up return values in the user stacks of the parent and the child processes.
+    [[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = newPid;
+    [[newPTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = 0;
+    
+endif;
+
+
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+
+ireturn;

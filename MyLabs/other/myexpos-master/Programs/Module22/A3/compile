@@ -1,0 +1,22 @@
+#!/bin/bash
+./spl ../Programs/Module22/A3/haltprog.spl
+./spl ../Programs/Module22/A3/os_startup.spl
+./spl ../Programs/Module22/A3/timer.spl
+./spl ../Programs/Module22/A3/int7.spl
+./spl ../Programs/Module22/A3/boot.spl
+./spl ../Programs/Module22/A3/int10.spl
+./spl ../Programs/Module22/A3/scheduler.spl
+./spl ../Programs/Module22/A3/module_0.spl
+./spl ../Programs/Module22/A3/module_4.spl
+./spl ../Programs/Module22/A3/console.spl
+./spl ../Programs/Module22/A3/int6.spl
+./spl ../Programs/Module22/A3/int9.spl
+./spl ../Programs/Module22/A3/module_1.spl
+./spl ../Programs/Module22/A3/module_2.spl
+./spl ../Programs/Module22/A3/diskint.spl
+./spl ../Programs/Module22/A3/int8.spl
+./spl ../Programs/Module22/A3/int11.spl
+./spl ../Programs/Module22/A3/int15.spl
+./spl ../Programs/Module22/A3/int13.spl
+./spl ../Programs/Module22/A3/int14.spl
+./spl ../Programs/Module22/A3/exe_handler.spl

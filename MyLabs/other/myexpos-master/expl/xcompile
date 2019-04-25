@@ -1,0 +1,9 @@
+#!/bin/bash
+./expl ../Programs/module20/task2/idle.expl
+mv assemblycode.xsm ../Programs/module20/task2/idle.xsm
+./expl ../Programs/module20/task2/init.expl
+mv assemblycode.xsm ../Programs/module20/task2/init.xsm
+./expl ../Programs/module20/task2/odd.expl
+mv assemblycode.xsm ../Programs/module20/task2/odd.xsm
+./expl ../Programs/module20/task2/even.expl
+mv assemblycode.xsm ../Programs/module20/task2/even.xsm

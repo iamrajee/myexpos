@@ -1,0 +1,100 @@
+type
+	typedef List
+	{
+		integer a;
+		List next;
+	}
+endtype
+
+decl
+	integer in,opt;
+	List Head;
+	integer insert(List &H;integer a); 
+	integer print(List H);			  
+	integer Reverse(List &H);		   	
+enddecl
+
+
+integer insert(List &H;integer a)
+{
+	decl
+		List new;
+	enddecl
+	begin
+		new = alloc();
+		new.a = a;
+		if(H ==null) then
+			H=new;
+			new.next = null;
+		else
+			new.next = H;
+			H = new;
+		endif;
+		return 0;
+	end
+}
+
+integer print(List H)
+{
+	decl
+		List t;
+	enddecl
+	begin
+		t=H;
+		while(t!=null) do
+			write(t.a);
+			t=t.next;
+		endwhile;
+		return 0;
+	end
+}
+		
+integer Reverse(List &H)
+{
+	decl
+		List temp1,temp2;
+	enddecl
+	begin
+		if(H!=null && H.next!=null) then
+			temp1=H.next;
+			temp2=H.next;
+			H.next=null;
+			in=Reverse(temp1);
+			temp2.next=H;
+			H=temp1;
+		endif;
+		return 1;
+	end
+}
+
+integer main()
+{	
+	decl
+		integer val,flag;
+		List t;
+	enddecl
+	begin		
+		Head = null;
+		flag=1;
+		while(flag==1) do
+			read(opt);
+			if(opt==1) then
+				read(val);
+				in=insert(Head,val);
+			else
+				if(opt==2) then
+					write(1000001);
+					in=print(Head);
+					write(1000001);
+				else
+					if(opt==3) then
+						in=Reverse(Head);
+					else
+						flag=0;
+					endif;
+				endif;
+			endif;
+		endwhile;
+		return 9;
+	end
+}

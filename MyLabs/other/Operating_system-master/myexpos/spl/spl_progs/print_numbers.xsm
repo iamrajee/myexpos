@@ -1,0 +1,11 @@
+MOV R0 , "Print num.\n"
+PORT P1 , R0
+OUT
+MOV R0 , 0
+MOV R1 , 20
+INR R0
+DCR R1
+MOV P1 , R0
+OUT
+JNZ R1 , 522
+HALT

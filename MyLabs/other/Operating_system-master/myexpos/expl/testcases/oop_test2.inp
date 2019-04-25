@@ -1,0 +1,48 @@
+class
+	A {
+		int f1()
+		{
+			
+			begin
+				write(15);
+				return 0;
+			end
+		}
+
+		int f2()
+		{
+			
+			begin
+				write(20);
+				return 0;
+			end
+		}
+		int f3()
+		{
+			
+			begin
+				write(25);
+				return 1;
+			end
+		}
+}
+endclass
+
+decl
+	A var1,var2;
+enddecl
+
+int main()
+{
+	decl
+		int val;
+	enddecl
+	begin
+		val = initialize();
+		var2 = new A();
+		val = var2.f2();
+		val = var2.f3();
+
+		return 0;
+	end
+}

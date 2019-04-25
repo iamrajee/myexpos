@@ -1,0 +1,22 @@
+decl
+    int temp;
+    string filename;
+enddecl
+
+int main() {
+begin
+
+    write("Enter file");
+    read(filename);
+    temp = exposcall("Delete", filename);
+    if(temp == 0) then
+        write("Deleted");
+    else if(temp == -1) then
+        write("Perm error");
+    else
+        write("File open");
+    endif;
+    endif;
+    return 0;
+end
+}

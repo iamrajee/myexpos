@@ -1,0 +1,140 @@
+// Memory Manager Module
+
+// print "mod 2";
+// print R1;
+
+alias functionNum R1;
+
+// Get Free Page
+// takes nothing.
+if (functionNum == 1) then
+
+    // Increment WAIT_MEM_COUNT field in the system status table.
+    [SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] + 1;
+
+    // Set the state of the invoked process as WAIT_MEM.
+    [PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 4] = WAIT_MEM;
+
+    // While memory is full (MEM_FREE_COUNT will be 0), do following.
+    while ([SYSTEM_STATUS_TABLE + 2] == 0) do
+
+        // Schedule other process by invoking the context switch module. // blocking the process
+        multipush(R1, R2);
+        call MOD_5;
+        multipop(R1, R2);
+    endwhile;
+
+    // Decrement the WAIT_MEM_COUNT field and MEM_FREE_COUNT field in the system status table.
+    [SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] - 1;
+    [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+    alias iter R4;
+    iter = 0;
+
+    // Find a free page using memory free list and set the corresponding entry as 1
+    while (([MEMORY_FREE_LIST + iter] == 1) && iter < 128) do
+        iter = iter + 1;
+    endwhile;
+
+    
+    // store the obtained free page number in R0 as return value.
+    [MEMORY_FREE_LIST + iter] = 1;
+    R0 = iter;
+
+    return;
+endif;
+
+// Release Page
+if (functionNum == 2) then
+
+    // The Page number to be released is present in R2.
+    [MEMORY_FREE_LIST + R2] = [MEMORY_FREE_LIST + R2] - 1;
+
+    // If that entry in the memory free list becomes zero
+    if ([MEMORY_FREE_LIST + R2] == 0) then
+        // increment the MEM_FREE_COUNT in the system status table.
+        [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;
+    endif;
+
+    
+
+    alias iter R4;
+    iter = 1;
+
+    // Update the STATUS to READY for all processes (with valid PID) which have STATUS as WAIT_MEM.
+    while(iter < MAX_PROC_NUM) do
+        if([PROCESS_TABLE + 16 * iter + 4] == WAIT_MEM) then
+            [PROCESS_TABLE + 16 * iter + 4] = READY;
+        endif;
+        iter = iter + 1;
+    endwhile;
+    return;
+endif;
+
+// Release Block (function number = 4)
+// blockNum, pid
+if (functionNum == 4) then
+    alias blockNum R2;
+    [DISK_FREE_LIST + blockNum] = 0;
+    return;
+
+endif;
+
+// Get Code Page 
+//  Loads a single code page to memory given the block number of the page in the disk. It takes the block number and PID as an argument.
+// R2 = block, R3 = pid.
+if (functionNum == 5) then
+    alias i R5;
+    alias j R6;
+    alias pageNum R4;
+    alias block R7;
+    alias pid R8;
+    block = R2;
+    pid = R3;
+    i = 1;
+
+    // Check the disk map table entries of all the processes, if the given block number is present in any entry and the corresponding page table
+    // entry is valid then return the memory page number. Also increment the memory free list entry of that page.
+    while (i < MAX_PROC_NUM) do
+        if ([PROCESS_TABLE + i * 16 + 1] == i && i != pid) then
+            j = 4;
+            while (j < 8) do
+                if ([DISK_MAP_TABLE + i * 10 + j] == block && [PAGE_TABLE_BASE + i * 20 + 2 * j] != -1) then
+                    [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i * 20 + 2 * j]] = [MEMORY_FREE_LIST + [PAGE_TABLE_BASE + i * 20 + 2 * j]] + 1;
+                    R0 = [PAGE_TABLE_BASE + i * 20 + 2 * j];
+                    // print i;
+                    // print j;
+                    return;
+                j = j + 1;
+                endif;  
+            endwhile;
+        endif;    
+        i = i + 1;
+    endwhile; 
+
+    //  invoke Get Free Page function in the memory manager module to allocate a new page. 
+    multipush(R0, R1, R2, R3, R7, R8);
+    R0 = 0;
+    R1 = 1;
+    call MOD_2;
+    pageNum = R0;
+    multipop(R0, R1, R2, R3, R7, R8);
+
+    // Load the disk block to the newly acquired memory page by invoking the Disk Load function of the device manager module. 
+    multipush(R0, R1, R2, R3, R4, R7, R8);
+    R0 = 0;
+    R1 = 2;
+    R2 = pid;
+    R3 = pageNum;
+    R4 = block;
+  
+    call MOD_4;
+    multipop(R0, R1, R2, R3, R4, R7, R8);
+
+    // Return the memory page number to which the code block has been loaded. 
+    R0 = pageNum;
+    return;
+endif;
+
+return;
+

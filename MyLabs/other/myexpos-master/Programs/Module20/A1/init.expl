@@ -1,0 +1,21 @@
+int main() {
+    decl
+        int x, y;
+        str even, odd, out, error;
+    enddecl
+    begin
+        error = "ForkFailed";
+        x = exposcall("Fork");
+        even = "even.xsm";
+        odd = "odd.xsm";
+        if(x == -1) then
+            y = exposcall("Write", -2, error);
+        endif;
+        if(x == 0) then
+            x = exposcall("Exec", odd);
+        else
+            x = exposcall("Exec", even);
+        endif;
+        return 0;
+    end
+}

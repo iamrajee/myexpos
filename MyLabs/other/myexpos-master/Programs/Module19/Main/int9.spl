@@ -1,0 +1,162 @@
+// exec system call
+
+// Saving user stack and changing to kernel stack.
+alias userSP R0;
+userSP = SP;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = userSP;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 11] * 512 - 1;
+
+//setting the MODE flag in the process table of the calling process
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+
+// getting the file name from user stack which is the 1st and only argument.
+alias fileDescriptor R4;
+fileDescriptor = [([PTBR + 2 * ((userSP - 4) / 512)] * 512) + ((userSP - 4) % 512)];
+
+//  MAX_FILE_NUM = 60.
+// FILE TYPE	FILE NAME	FILE SIZE	USER ID	PERMISSION	Unused (3 words)	
+// DATA BLOCK 1	DATA BLOCK 2	DATA BLOCK 3	DATA BLOCK 4	Unused (4 words)
+// MAX_FILE_BLOCKS = 4. Each Inode table entry consists of 16 words of which the 7 are unused in the present version of eXpOS.
+// SPL constant INODE_TABLE points to the starting address of the table.
+
+alias iter R5;
+iter = 0;
+alias inode_index R8;
+inode_index = -1;
+
+// Search the memory copy of the inode table for the file,
+while(iter < MAX_FILE_NUM) do
+    alias state R7;
+    state = INODE_TABLE + 16 * iter;
+    if([state + 1] == fileDescriptor) then
+        if([state + 0] == EXEC) then
+            inode_index = iter;
+        endif;
+        break;
+    endif;
+    iter = iter + 1;
+endwhile;
+
+// If the file is not present or file is not in XEXE 
+// format return to user mode with return value -1 indicating failure
+if (inode_index == -1) then
+    alias physicalAddrRetVal R5;
+    physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512);
+    [physicalAddrRetVal] = -1;
+else
+    alias pid R6;
+    pid = [SYSTEM_STATUS_TABLE + 1]; 
+
+    // Call the Exit Process function in process manager module to
+    // deallocate the resources and pages of the current process.
+    multipush(R0, R6, R8);
+    R0 = 0;
+    R1 = 3;
+    R2 = pid;
+    R3 = 0;
+    call MOD_1;
+    multipop(R0, R6, R8);
+
+    // Reclaim the same page by incrementing the memory free list entry of user area 
+    // page and decrementing the MEM_FREE_COUNT field
+    [MEMORY_FREE_LIST + [PROCESS_TABLE + 16 * pid + 11]] = [MEMORY_FREE_LIST + [PROCESS_TABLE + 16 * pid + 11]] + 1;
+    [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+    // Set the SP to the start of the user area page to intialize the kernel stack of the new process.
+    SP = [PROCESS_TABLE + pid * 16 + 11] * 512 - 1;
+
+    // Update the STATE field to RUNNING and store inode index obtained above in the inode index 
+    // field in the process table.
+    [PROCESS_TABLE + pid * 16 + 4] = RUNNING;
+    [PROCESS_TABLE + pid * 16 + 7] = inode_index;
+
+    // Set the library page entries in the page table.
+    //Library
+    PTBR = PAGE_TABLE_BASE + pid * 20;
+    PTLR = 10;
+    [PTBR+0] = 63;
+    [PTBR+1] = "0100";
+    [PTBR+2] = 64;
+    [PTBR+3] = "0100";
+
+    //Heap
+    //  Don't allocate memory pages for heap. Instead, invalidate page table entries for heap. 
+    [PTBR+4] = -1;
+    [PTBR+5] = "0000";
+    [PTBR+6] = -1;
+    [PTBR+7] = "0000";  
+
+    multipush(R0, R6, R8);
+    //Stack
+    R1 = 1;
+    call MOD_2;
+    [PTBR+16] = R0;
+    [PTBR+17] = "0110";
+    //print R0;
+    R1 = 1;
+    call MOD_2;
+    [PTBR+18] = R0;
+    [PTBR+19] = "0110";
+    //print R0;
+    //Change the page allocation for code pages from previous stage. Invoke the Get Code Page function for the first code block and update the page table entry for this first code page. Invalidate rest of the code pages entries in the page table. 
+
+    multipop(R0, R6, R8);
+
+    iter = 1;
+    //  Invalidate rest of the code pages entries in the page table. 
+    while (iter < 4) do
+        [PTBR + 8 + iter * 2] = -1;
+        [PTBR + 8 + iter * 2 + 1] = "0000";
+        iter = iter + 1;
+    endwhile;
+
+    multipush(R0, R6, R8);
+    // Using get code page from memory module for the 1st block of code.
+    R0 = 0;
+    R1 = 5;
+    R2 = [INODE_TABLE + 16 * inode_index + 8];
+    R3 = pid;
+    call MOD_2;
+    
+    //loadi(R0, [INODE_TABLE + 16 * 2 + 8]);
+
+    [PTBR + 8] = R0;
+    [PTBR + 8 + 1] = "0100";
+
+    multipop(R0, R6, R8);
+
+    // Initialize the disk map table of the process. The code page entries are set to the disk block 
+    // numbers from inode table of the program (program given as argument to exec). 
+    // Initialize rest of the entries to -1.
+    iter = 0;
+    while (iter < 10) do
+        [DISK_MAP_TABLE + pid * 10 + iter] = -1;
+        iter = iter + 1;
+    endwhile;
+
+    [DISK_MAP_TABLE + pid * 10 + 5] = [INODE_TABLE + 16 * inode_index + 9];
+    [DISK_MAP_TABLE + pid * 10 + 6] = [INODE_TABLE + 16 * inode_index + 10];
+    [DISK_MAP_TABLE + pid * 10 + 7] = [INODE_TABLE + 16 * inode_index + 11];
+    
+    // per-process resource table should be initialized in this user area page. Since the 
+    // newly created process has not opened any files or semaphores, each entry in the 
+    // per-process table is initialized to -1.
+    R9 = [PROCESS_TABLE + pid * 16 + 11];
+    iter = R9 * 512 + 512 - 16;
+    while (iter < (R9 * 512 + 512)) do
+        [iter] = -1;
+        iter = iter + 1;
+    endwhile;
+
+    //Storing the IP in the top of the user stack and setting the SP
+    //print [[PTBR + 8] * 512];
+    //print [[PTBR + 8] * 512 + 1];
+    [[PTBR+16] * 512] = [[PTBR + 8] * 512 + 1];
+
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13] = 8 * 512;
+endif;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+
+ireturn;

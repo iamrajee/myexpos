@@ -1,0 +1,14 @@
+//This is the code for the debugging purpose
+//you can see that instruction is taking up only 2 word space
+alias counter R0;
+alias welcome R1;
+
+welcome = "Welcome!";
+counter = 0;
+
+while (counter <= 10) do
+    if (counter % 2 != 0) then
+        breakpoint;
+    endif;
+    counter = counter + 1;
+endwhile;

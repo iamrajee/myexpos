@@ -1,0 +1,8 @@
+./expl ../Programs/Module14/A1/odd.expl
+mv assemblycode.xsm ../Programs/Module14/A1/odd.xsm
+./expl ../Programs/Module14/A1/even.expl
+mv assemblycode.xsm ../Programs/Module14/A1/even.xsm
+./expl ../Programs/Module14/A1/primes.expl
+mv assemblycode.xsm ../Programs/Module14/A1/primes.xsm
+./expl ../Programs/Module14/A1/idle.expl
+mv assemblycode.xsm ../Programs/Module14/A1/idle.xsm

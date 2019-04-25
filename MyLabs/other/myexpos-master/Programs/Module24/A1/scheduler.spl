@@ -1,0 +1,67 @@
+// current process and its processing table.
+alias curProcess R0;
+alias processTable R1;
+curProcess = [SYSTEM_STATUS_TABLE + 1];
+processTable = PROCESS_TABLE + 16 * curProcess;
+
+// Saving base pointer.
+SP = SP + 1;
+[SP] = BP;
+
+// storing data related to context.
+[processTable + 12] = SP % 512;
+[processTable + 14] = PTBR;
+[processTable + 15] = PTLR;
+
+// finding pid of new process.
+alias iter R2;
+alias newProcess R5;
+if(curProcess == MAX_PROC_NUM - 1) then
+    iter = 1;
+else iter = curProcess + 1;
+endif;
+
+while(curProcess != iter) do
+    alias state R3;
+    state = [PROCESS_TABLE + 16 * iter + 4];
+    if(state == CREATED || state == READY) then
+        break;
+    endif;
+    if(iter + 1 == MAX_PROC_NUM) then
+        iter = 1;
+    else iter = iter + 1;
+    endif;
+endwhile;
+
+// no process found, idle is scheduled.
+if(iter == curProcess && [PROCESS_TABLE + 16 * iter + 4] != READY) then
+    newProcess = 0;
+else newProcess = iter;
+endif;
+
+// process table entries of the new process
+alias newProcessTable R6;
+newProcessTable = PROCESS_TABLE + 16 * newProcess;
+//restoring data for the new process
+PTBR = [newProcessTable + 14];
+PTLR = [newProcessTable + 15];
+[SYSTEM_STATUS_TABLE + 1] = newProcess;
+
+// returning the control to new process / timer.
+if([newProcessTable + 4] == CREATED) then
+    //this returns the control to the new program that has not yet been scheduled
+    // Set BP to the value stored at the beginning of the kernel stack.    
+    SP = [newProcessTable + 13];
+    BP = [[newProcessTable + 11] * 512]; 
+    [newProcessTable + 4] = RUNNING;
+    [newProcessTable + 9] = 0;
+    ireturn;
+else
+    //this returns control timer interrupt for the porgrams that has been scheduled atleast once
+    [newProcessTable + 4] = RUNNING;
+    [newProcessTable + 9] = 0;
+    SP = [newProcessTable + 11] * 512 + [newProcessTable + 12];
+    BP = [SP];
+    SP = SP - 1;
+    return;
+endif;

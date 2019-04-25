@@ -1,0 +1,97 @@
+// int 11 
+//The system calls Semget and Semrelease
+
+alias syscall R5;
+alias userSP R6;
+alias pid R7;
+
+pid = [SYSTEM_STATUS_TABLE + 1];
+userSP = SP;
+
+[PROCESS_TABLE + pid * 16 + 13] = SP;
+SP = [PROCESS_TABLE + pid * 16 + 11] * 512 - 1;
+
+// At the beginning of interrupt routine 13, extract the system call number from the user stack and switch to the kernel stack.
+syscall = [[PTBR + 2 * ((userSP - 5) / 512)] * 512 + (userSP - 5) % 512];
+
+// Semget
+if (syscall == 17) then
+	// Set the MODE_FLAG in the Process Table to 17 and switch to kernel stack.
+	[PROCESS_TABLE + pid * 16 + 9] = 17;
+	alias iter R8;
+	iter = 0;
+	alias userPage R9;
+	userPage = [PROCESS_TABLE + pid * 16 + 11];
+
+	// Find the index of a free entry in the Per Process Resource Table.
+	while (iter < 8) do
+		if ([userPage * 512 + 512 - 16 + 2 * iter] == -1) then
+			break;
+		endif;
+		iter = iter + 1;
+	endwhile;
+
+	// If no free entry, then return -1.
+	if (iter == 8) then
+		[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = -1;
+		[PROCESS_TABLE + pid * 16 + 9] = 0;
+		SP = [PROCESS_TABLE + pid * 16 + 13];
+		ireturn;
+	endif;
+
+	// Resource Identifier field of the per-process resource table entry is set to 1 to indicate that the resource is a semaphore.
+	[userPage * 512 + 512 - 16 + 2 * iter] = 1;
+
+	// Acquire a semaphore by calling the acquire_semaphore() function in the Resource Manager Module.
+	multipush(R5, R6, R7, R8, R9);
+	R1 = 6;
+	R2 = pid;
+	call MOD_0;
+	multipop(R5, R6, R7, R8, R9);
+
+	// If there are no free semaphores, return -2.
+	if (R0 == -1) then
+		[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = -2;
+		[PROCESS_TABLE + pid * 16 + 9] = 0;
+		SP = [PROCESS_TABLE + pid * 16 + 13];
+		ireturn;
+	endif;
+
+	//Store the index of the Semaphore table entry in the Per Process Resource Table entry.
+	[userPage * 512 + 512 - 16 + 2 * iter + 1] = R0;
+	[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = iter;
+
+endif;
+
+// Semrelease
+if (syscall == 18) then
+	// Set the MODE_FLAG in the Process Table to 18 and switch to kernel stack.
+	[PROCESS_TABLE + pid * 16 + 9] = 18;
+
+	alias semaDesc R8;
+	semaDesc = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];
+	// If Semaphore descriptor is not valid or the entry in the Per Process Resource Table is not valid, return -1. 
+///* The descriptor is invalid if not in the range 0 - 7, or if the resource identifier field of the table entry is not 1 */
+	if (semaDesc < 0 || semaDesc > 7 || [[PROCESS_TABLE + 16 * pid + 11] * 512 + 512 - 16 + 2 * semaDesc] != 1) then
+		[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = -1;
+		[PROCESS_TABLE + pid * 16 + 9] = 0;
+		SP = [PROCESS_TABLE + pid * 16 + 13];
+		ireturn;
+	endif;
+
+	// Invoke the release_semaphore() function in the Resource Manager Module.
+	multipush(R5, R6, R7, R8, R9);
+	R1 = 7;
+	R2 = [[PROCESS_TABLE + 16 * pid + 11] * 512 + 512 - 16 + 2 * semaDesc + 1];
+	R3 = pid;
+	call MOD_0;
+	multipop(R5, R6, R7, R8, R9);
+
+	[[PTBR + 2 * ((userSP - 1) / 512)] * 512 + (userSP - 1) % 512] = 0;
+	
+endif;
+
+[PROCESS_TABLE + pid * 16 + 9] = 0;
+SP = [PROCESS_TABLE + pid * 16 + 13];
+
+ireturn;

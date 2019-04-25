@@ -1,0 +1,10 @@
+./spl ../MyLabs/Lab16/timer_interrupt.spl
+./spl ../MyLabs/Lab16/read_interrupt_int6.spl
+./spl ../MyLabs/Lab16/write_interrupt_int7.spl
+./spl ../MyLabs/Lab16/device_manager_module4.spl
+./spl ../MyLabs/Lab16/resource_manager_module0.spl
+./spl ../MyLabs/Lab16/boot_module.spl
+./spl ../MyLabs/Lab16/scheduler_module5.spl
+./spl ../MyLabs/Lab16/os_startup.spl
+./spl ../MyLabs/Lab16/int10_module.spl
+./spl ../MyLabs/Lab16/console_interrupt_handler.spl

@@ -1,0 +1,4 @@
+#!/bin/bash
+./spl ../Programs/Module9/Main/haltprog.spl
+./spl ../Programs/Module9/Main/os_startup.spl
+./spl ../Programs/Module9/Main/timer.spl

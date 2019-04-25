@@ -1,0 +1,53 @@
+type
+	typedef bst{
+				integer a;
+				bst left;
+				bst right;
+				}
+endtype
+
+decl
+	integer f1(bst &h);
+	bst root;
+		integer k;
+enddecl
+
+integer f1(bst &h)
+{
+	begin
+	write(h);
+		if(h==null) then
+			h=alloc();
+			h.a=45;
+			h.left = null;
+			h.right = null;
+		else
+			if(h.left==null) then
+				h.left=alloc();
+				h.left.a=40;
+				h.left.left = null;
+				h.left.right = null;
+			else
+				h.left.left = alloc();
+				h.left.left.a = 35;
+			endif;
+		endif;
+		return 0;
+	end
+	}
+
+integer main()
+{
+	begin
+		
+		root = null;
+		write(root);
+		k = f1(root);
+		write(root.a);
+		write(root.left);
+		k = f1(root.left);		
+		write(root.left.a);
+		return 0;
+	end
+	}
+		

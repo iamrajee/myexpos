@@ -1,0 +1,13 @@
+int main()
+{
+    decl
+        str s;
+    enddecl
+
+    begin
+        read(s);
+        write(s);
+
+        return 0;
+    end
+}
