@@ -9,7 +9,8 @@
 # High Level Design of eXpOS
 ![image](https://user-images.githubusercontent.com/25712145/223976675-bfd5be23-5ff1-46a4-9cc3-84577bf8571b.png)
 
-Various stage involve in self-experiment OS and approximate time it took
+# Various stage involve in self-experiment OS and approximate time it took
+```
 Stage 1 : Setting up the System
 Stage 2 : Understanding the Filesystem (2 Hours)
 Stage 3 : Bootstrap Loader (2 Hours)
@@ -38,5 +39,6 @@ Stage 25 : File Write (12 Hours)
 Stage 26 : User Management (12 Hours)
 Stage 27 : Pager Module (18 Hours)
 Stage 28 : Multi-Core Extension (12 Hours)
+```
 
 ![image](https://user-images.githubusercontent.com/25712145/223977676-fc174f44-03fd-4dd2-af79-b0ecf49e5a42.png)
